@@ -129,13 +129,26 @@ function init(): void {
 const PICK_PAIRS: Record<number, number> = {
   1: 3,
   2: 4,
+
+  23: 34,
+  31: 24,
+  14: 33,
+  44: 32,
+  41: 13,
+  12: 21,
+  42: 11,
+  43: 22,
 };
+const COMPOUND_PICKS: number[] = [];
 (function () {
   let keys = Object.keys(PICK_PAIRS);
   for (let ii = 0; ii < keys.length; ++ii) {
     let v = Number(keys[ii]);
     let other = PICK_PAIRS[v];
     PICK_PAIRS[other] = v;
+    if (v > 4) {
+      COMPOUND_PICKS.push(v);
+    }
   }
 }());
 
@@ -144,7 +157,7 @@ function randInt(mx: number): number {
 }
 
 class PickState {
-  picks = [1, 2];
+  picks = COMPOUND_PICKS.slice(0).concat([1,2]);
   selected = 0;
   lock = [1, 2, 3, 4];
   progress = 0;
@@ -184,10 +197,30 @@ function drawLock(): void {
 function usePick(idx: number): void {
   let { picks, lock, progress } = pick_state;
   let pick = picks[idx];
-  if (pick === lock[progress]) {
-    pick_state.progress++;
+  let failed = false;
+  if (pick <= 4) {
+    if (pick === lock[progress]) {
+      pick_state.progress++;
+    } else {
+      failed = true;
+    }
   } else {
-    // chance to break lock
+    let pickb = pick % 10;
+    let picka = (pick - pickb) / 10;
+    if (picka === lock[progress]) {
+      if (pickb === lock[progress + 1]) {
+        pick_state.progress+=2;
+      } else if (progress === lock.length - 1) {
+        pick_state.progress++;
+      } else {
+        failed = true;
+      }
+    } else {
+      failed = true;
+    }
+  }
+  if (failed) {
+    // TODO: chance to break
   }
 }
 function drawPicks(): void {
@@ -199,7 +232,7 @@ function drawPicks(): void {
     pick_state.selected = max(pick_state.selected - 1, 0);
   }
 
-  let x = 20;
+  let x = floor((game_width - 10*10 - 4*9) / 2);
   let y = 70;
   let z = Z.UI;
   let w = 10;
