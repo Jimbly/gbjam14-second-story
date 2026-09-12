@@ -12,7 +12,6 @@ import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
-import { getFrameTimestamp } from 'glov/client/engine';
 import { Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
@@ -20,12 +19,7 @@ import { netInit } from 'glov/client/net';
 import { spot, SPOT_DEFAULT_BUTTON } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import {
-  Sprite,
-  spriteCreate,
-} from 'glov/client/sprites';
-import {
   drawBox,
-  print,
   scaleSizes,
   setFontHeight,
 } from 'glov/client/ui';
@@ -38,7 +32,7 @@ import {
   bindsInit,
 } from './binds';
 import { blend } from './blend';
-import { stateHeist, stateHeistInit } from './heist';
+import { finishUnlocking, stateHeist, stateHeistInit } from './heist';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -47,9 +41,11 @@ window.Z = window.Z || {};
 Z.BACKGROUND = 1;
 Z.SPRITES = 10;
 Z.WALLS = 5;
+Z.CHESTS = 5;
 Z.DOORS = 9;
 Z.HERO = 10;
 Z.GUARD = 11;
+Z.FLOATERS = 15;
 Z.REPALETTE = 99999;
 
 
@@ -84,13 +80,9 @@ const font_style2 = fontStyleColored(null, palette_font[2]);
 const font_style3 = fontStyleColored(null, palette_font[3]);
 
 
-let sprite_test: Sprite;
 function init(): void {
   registerShader('repalette', {
     fp: 'shaders/repalette.fp',
-  });
-  sprite_test = spriteCreate({
-    name: 'test',
   });
 
   bindsInit();
@@ -137,6 +129,12 @@ function randInt(mx: number): number {
   return floor(random() * mx);
 }
 
+class PlayerState {
+  money = 0;
+  mode: 'unlock' | 'heist' = 'heist';
+}
+let player_state = new PlayerState();
+
 type PickAnim = {
   pick: number;
   progress: number;
@@ -159,7 +157,7 @@ let pick_state: PickState;
 function stateLockPickInit(): void {
   pick_state = new PickState();
   pick_state.lock = [];
-  for (let ii = 0; ii < 10; ++ii) {
+  for (let ii = 0; ii < 4; ++ii) {
     pick_state.lock.push(randInt(4) + 1);
   }
 }
@@ -317,10 +315,11 @@ function usePick(idx: number): void {
   } else {
     let pickb = pick % 10;
     let picka = (pick - pickb) / 10;
+    let only_one_target = progress === lock.length - 1;
     if (picka === lock[progress]) {
       if (pickb === lock[progress + 1]) {
         pick_state.progress+=2;
-      } else if (progress === lock.length - 1) {
+      } else if (only_one_target) {
         pick_state.progress++;
       } else {
         failed = true;
@@ -334,7 +333,7 @@ function usePick(idx: number): void {
     if (failed) {
       pick_state.bonus = max(0, pick_state.bonus - 10);
     } else {
-      pick_state.bonus += 20;
+      pick_state.bonus += only_one_target ? 5 : 20;
     }
   }
   pick_state.anim = {
@@ -434,11 +433,14 @@ function drawPickingHUD(): void {
   let extra = '';
   if (pick_state.progress !== pick_state.lock.length) {
     let selected = pick_state.picks[pick_state.selected];
-    if (selected > 4) {
+    if (selected > 4 && pick_state.progress < pick_state.lock.length - 1) {
       extra = '+20';
     } else {
       extra = '+5';
     }
+  } else {
+    // done, show bonus even during animation
+    bonus = pick_state.bonus;
   }
   let eff_bonus = blend('bonus', bonus);
   let max_bonus = ceil(pick_state.lock.length / 2) * 20;
@@ -456,6 +458,11 @@ function drawPickingHUD(): void {
   });
 }
 
+function leavePicking(): void {
+  finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus);
+  player_state.mode = 'heist';
+}
+
 function stateLockPick(dt: number): void {
   autoAtlas('gfx', 'lockpick-bg').draw({
     x: 0, y: 0, w: game_width, h: game_height,
@@ -464,6 +471,9 @@ function stateLockPick(dt: number): void {
   drawLock(dt);
   drawPicks();
   drawPickingHUD();
+  if (!pick_state.anim && pick_state.progress === pick_state.lock.length) {
+    leavePicking();
+  }
 }
 
 function topOfFrame(): void {
@@ -483,21 +493,17 @@ function topOfFrame(): void {
   actionCheckBinds();
 }
 
+export function startUnlocking(): void {
+  player_state.mode = 'unlock';
+}
+
 function statePlay(dt: number): void {
   topOfFrame();
-  if (0) {
+  if (player_state.mode === 'unlock') {
     return stateLockPick(dt);
-  } else if (1) {
+  } else if (player_state.mode === 'heist') {
     return stateHeist(dt);
   }
-
-  print(null,10,10,1, 'Test!');
-  sprite_test.draw({
-    x: 20 + sin(getFrameTimestamp() * 0.005) * 20,
-    y: 20,
-    w: 10,
-    h: 10,
-  });
 }
 
 export function main(): void {

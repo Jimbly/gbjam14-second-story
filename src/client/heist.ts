@@ -1,8 +1,12 @@
 import assert from 'assert';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
+import { ALIGN } from 'glov/client/font';
+import { markdownAuto } from 'glov/client/markdown';
+import { drawBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
-import { clamp, ridx } from 'glov/common/util';
+import { Rec } from 'glov/common/types';
+import { clamp, easeOut, ridx } from 'glov/common/util';
 import {
   JSVec2,
   JSVec4,
@@ -16,7 +20,8 @@ import {
   v2sub,
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
-import { game_height, game_width } from './main';
+import { blend } from './blend';
+import { game_height, game_width, startUnlocking } from './main';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
@@ -26,19 +31,32 @@ const { asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = M
 const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
+type Chest = {
+  pos: JSVec2;
+  type: 'simple' | 'locked';
+  value: number;
+  opened: boolean;
+};
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
 class Level {
   w=40;
   h=50;
   cells: Cell[][] = [];
   debug(): string {
-    return this.cells.map((row) => {
+    let chars = this.cells.map((row) => {
       return row.map((cell) => {
-        return cell === 'wall' ? '#' : cell === 'door' ? '+' : cell === 'floor' ? ' ' : '?';
-      }).join('');
-    }).join('\n');
+        return cell === 'wall' ? '#' : cell === 'door' ? '+' : cell === 'floor' ? ' ' : '?' as string;
+      });
+    });
+    for (let ii = 0; ii < this.chests.length; ++ii) {
+      let chest = this.chests[ii];
+      chars[chest.pos[1]][chest.pos[0]] = '$';
+    }
+
+    return chars.map((row) => row.join('')).join('\n');
   }
   entrance: JSVec2 = [0,0];
+  chests: Chest[] = [];
 }
 let level: Level;
 function genLevel(): void {
@@ -275,6 +293,69 @@ function genLevel(): void {
       }
     }
   }
+  function countDoors(room: JSVec4): number {
+    let r = 0;
+    for (let yy = -1; yy <= room[3]; ++yy) {
+      for (let xx = -1; xx <= room[2]; ++xx) {
+        if (cells[room[1] + yy][room[0] + xx] === 'door') {
+          r++;
+        }
+      }
+    }
+    return r;
+  }
+  // add chests
+  let { chests } = level;
+  // first to leaf rooms
+  let did_chests: Rec<number, boolean> = {};
+  let desired_chests = 10;
+  function addChest(roomid: number): void {
+    let room = rooms[roomid];
+    did_chests[roomid] = true;
+    --desired_chests;
+    while (true) {
+      let x = room[0] + rand.range(room[2]);
+      let y = room[1] + rand.range(room[3]);
+      if (!countDoors([x, y, 1, 1])) {
+        const type = rand.range(2) ? 'simple' : 'locked';
+        let value = type === 'simple' ? 100 : 200;
+        chests.push({
+          pos: [x, y],
+          type,
+          value,
+          opened: false,
+        });
+        break;
+      }
+    }
+  }
+  for (let ii = 0; ii < rooms.length && desired_chests; ++ii) {
+    let room = rooms[ii];
+    let numdoors = countDoors(room);
+    if (numdoors === 1) {
+      addChest(ii);
+    }
+  }
+  // then just random rooms
+  let retries = 0;
+  while (desired_chests && retries < 100) {
+    let roomid = rand.range(rooms.length);
+    if (did_chests[roomid]) {
+      ++retries;
+      continue;
+    }
+    retries = 0;
+    addChest(roomid);
+  }
+
+  if (1) { // debug
+    chests.push({
+      pos: [level.entrance[0] + 3, level.entrance[1]],
+      type: 'locked',
+      value: 200,
+      opened: false,
+    });
+  }
 }
 
 
@@ -370,10 +451,18 @@ function lineCircleAdvCollide(x0: number, y0: number, x1: number, y1: number, cx
   };
 }
 
+type Floater = {
+  t: number;
+  msg: string;
+  pos: JSVec2;
+};
 class HeistState {
   pos: JSVec2 = [0, 0];
   dir = 1;
   speed = 1;
+  loot = 0;
+  floaters: Floater[] = [];
+  unlocking = -1;
 }
 
 let heist_state: HeistState;
@@ -388,8 +477,11 @@ export function stateHeistInit(): void {
   ];
 }
 function doMotion(dt: number): void {
-  let { pos } = heist_state;
-  let { cells } = level;
+  let { pos, unlocking } = heist_state;
+  if (unlocking !== -1) {
+    return;
+  }
+  let { cells, chests } = level;
   let impulse: JSVec2 = [0, 0];
   if (actionDown('up')) {
     impulse[1]--;
@@ -594,14 +686,75 @@ function doMotion(dt: number): void {
   if (dist > 0.01*0.01) {
     heist_state.dir = impulse[0] > 0 ? 1 : impulse[0] < 0 ? 3 : impulse[1] > 0 ? 0 : 2;
   }
-  // TODO: events on current cell
 
+  // events on current cell
+  for (let ii = 0; ii < chests.length; ++ii) {
+    let chest = chests[ii];
+    if (!chest.opened && v2distSq(chest.pos, [pos[0] - 0.5, pos[1] - 0.5]) < 0.9*0.9) {
+      if (chest.type === 'locked') {
+        heist_state.unlocking = ii;
+        heist_state.floaters.push({
+          t: 0,
+          pos: chest.pos,
+          msg: '[c=1]LOCKED!',
+        });
+      } else {
+        chest.opened = true;
+        heist_state.loot += chest.value;
+        heist_state.floaters.push({
+          t: 0,
+          pos: chest.pos,
+          msg: `[c=2]+$[c=3]${chest.value}`,
+        });
+      }
+    }
+  }
 }
+
+function drawHeistHUD(): void {
+  let x = 0;
+  let y = 0;
+  let h = 11;
+  let w = 83;
+  let z = Z.UI;
+  drawBox({
+    x, y, h, w,
+    z: z - 1,
+  }, autoAtlas('gfx', 'box'));
+
+  let loot = heist_state.loot;
+  let eff_bonus = blend('loot', loot);
+  markdownAuto({
+    x: x + 2, y: y + 2, z: z + 1, w, h,
+    text: `[c=2]GOLD: [c=3]$${round(eff_bonus)}[/c][/c]`,
+  });
+}
+
+export function finishUnlocking(success: boolean, bonus: number): void {
+  let chest = level.chests[heist_state.unlocking];
+  chest.opened = true;
+  if (success) {
+    heist_state.loot += chest.value + bonus;
+    heist_state.floaters.push({
+      t: 0,
+      pos: chest.pos,
+      msg: `[c=2]+$[c=3]${chest.value + bonus}`,
+    });
+  } else {
+    heist_state.floaters.push({
+      t: 0,
+      pos: chest.pos,
+      msg: '[c=1]FAILED!',
+    });
+  }
+  heist_state.unlocking = -1;
+}
+
 const TILESIZE = 14;
 export function stateHeist(dt: number):void {
   // center camera on hero
   camera2d.setAspectFixed(game_width, game_height);
-  let { pos } = heist_state;
+  let { pos, floaters } = heist_state;
 
   doMotion(dt);
 
@@ -623,13 +776,14 @@ export function stateHeist(dt: number):void {
   let x1 = floor(camera2d.x1() / TILESIZE);
   let y0 = floor(camera2d.y0() / TILESIZE);
   let y1 = floor(camera2d.y1() / TILESIZE);
+  let { cells, chests, h } = level;
   for (let yy = y0; yy <= y1; ++yy) {
     for (let xx = x0; xx <= x1; ++xx) {
-      let cellabove = yy && level.cells[yy - 1][xx] || 'floor';
-      let cellleft = level.cells[yy][xx - 1] || 'floor';
-      let cell = level.cells[yy][xx];
-      let cellright = level.cells[yy][xx + 1] || 'floor';
-      let cellbelow = yy < level.h - 1 && level.cells[yy + 1][xx] || 'floor';
+      let cellabove = yy && cells[yy - 1][xx] || 'floor';
+      let cellleft = cells[yy][xx - 1] || 'floor';
+      let cell = cells[yy][xx];
+      let cellright = cells[yy][xx + 1] || 'floor';
+      let cellbelow = yy < h - 1 && cells[yy + 1][xx] || 'floor';
       let spr;
       let z;
       if (cell === 'wall') {
@@ -661,4 +815,52 @@ export function stateHeist(dt: number):void {
       });
     }
   }
+  for (let ii = 0; ii < chests.length; ++ii) {
+    let chest = chests[ii];
+    autoAtlas('gfx', chest.opened ? 'chest-opened' : 'chest').draw({
+      x: chest.pos[0] * TILESIZE,
+      y: chest.pos[1] * TILESIZE,
+      w: TILESIZE,
+      h: TILESIZE,
+      z: Z.CHESTS,
+    });
+  }
+
+  for (let ii = floaters.length - 1; ii >= 0; --ii) {
+    let floater = floaters[ii];
+    floater.t += dt;
+    let t = floater.t / 1000;
+    if (t >= 1) {
+      floaters.splice(ii, 1);
+      if (heist_state.unlocking !== -1) {
+        // start unlocking game
+        startUnlocking();
+      }
+      continue;
+    }
+    let xx = (floater.pos[0] + 0.5) * TILESIZE;
+    let text_height = uiTextHeight();
+    let yy = floater.pos[1] * TILESIZE - round(easeOut(t, 2) * TILESIZE) - text_height;
+    let w = uiGetFont().getStringWidth(null, text_height, floater.msg.replace(/\[c=\d\]/g, '')) + 4;
+    xx -= floor(w/2);
+    markdownAuto({
+      x: xx,
+      y: yy,
+      w,
+      z: Z.FLOATERS,
+      align: ALIGN.HCENTER,
+      text: floater.msg,
+    });
+    drawBox({
+      x: xx,
+      y: yy - 3,
+      w: w,
+      h: text_height + 5,
+      z: Z.FLOATERS - 1,
+    }, autoAtlas('gfx', 'box'));
+  }
+
+  // camera back to normal for HUD
+  camera2d.setAspectFixed(game_width, game_height);
+  drawHeistHUD();
 }
