@@ -17,22 +17,22 @@ import {
   spriteCreate,
 } from 'glov/client/sprites';
 import {
+  drawBox,
   print,
   scaleSizes,
   setFontHeight,
 } from 'glov/client/ui';
-import { vec4 } from 'glov/common/vmath';
+import { Rec } from 'glov/common/types';
+import { easeOut } from 'glov/common/util';
+import { vec2, vec4 } from 'glov/common/vmath';
 import {
-  ACTION_EVENT,
-  ACTION_STATE,
-  actionBindKB,
-  actionBindPad,
   actionCheckBinds,
   actionEdge,
-  actionRegister,
+  bindsInit,
 } from './binds';
+import { blend } from './blend';
 
-const { max, min, floor, random, sin } = Math;
+const { max, min, floor, PI, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
@@ -42,6 +42,10 @@ Z.REPALETTE = 99999;
 // Virtual viewport for our game logic
 const game_width = 160;
 const game_height = 144;
+
+const ORIGIN_CENTER = vec2(0.5, 0.5);
+const PICK_W = 10;
+const PICK_H = 60;
 
 const palette_font = [
   0x081820ff,
@@ -63,67 +67,18 @@ function init(): void {
     name: 'test',
   });
 
-  actionRegister('up', ACTION_STATE);
-  actionRegister('left', ACTION_STATE);
-  actionRegister('down', ACTION_STATE);
-  actionRegister('right', ACTION_STATE);
-  actionRegister('select', ACTION_EVENT);
-  actionRegister('start', ACTION_EVENT);
-  actionRegister('accept', ACTION_EVENT);
-  actionRegister('cancel', ACTION_EVENT);
-  actionBindKB('UP', 'up');
-  actionBindKB('W', 'up');
-  actionBindKB('I', 'up');
-  actionBindKB('LEFT', 'left');
-  actionBindKB('A', 'left');
-  actionBindKB('J', 'left');
-  actionBindKB('DOWN', 'down');
-  actionBindKB('S', 'down');
-  actionBindKB('K', 'down');
-  actionBindKB('RIGHT', 'right');
-  actionBindKB('D', 'right');
-  actionBindKB('L', 'right');
-  actionBindKB('Z', 'cancel');
-  actionBindKB('X', 'accept');
-  actionBindKB('C', 'cancel');
-  actionBindKB('Q', 'select');
-  actionBindKB('E', 'start');
-  actionBindKB('SPACE', 'accept');
-  actionBindKB('ESC', 'cancel');
-  actionBindKB('BACKSPACE', 'cancel');
-  actionBindKB('BRACKET_LEFT', 'select');
-  actionBindKB('BRACKET_RIGHT', 'start');
-  actionBindKB('SHIFT', 'select');
-  actionBindKB('ENTER', 'start');
+  bindsInit();
+}
 
-  actionBindPad('SELECT', 'accept');
-  actionBindPad('CANCEL', 'cancel');
-  actionBindPad('X', 'accept');
-  actionBindPad('Y', 'cancel');
-  actionBindPad('LEFT_BUMPER', 'accept');
-  actionBindPad('RIGHT_BUMPER', 'accept');
-  actionBindPad('LEFT_TRIGGER', 'cancel');
-  actionBindPad('RIGHT_TRIGGER', 'cancel');
-  actionBindPad('BACK', 'select');
-  actionBindPad('START', 'start');
-  actionBindPad('LEFT_STICK', 'accept');
-  actionBindPad('RIGHT_STICK', 'accept');
-  actionBindPad('UP', 'up');
-  actionBindPad('DOWN', 'down');
-  actionBindPad('LEFT', 'left');
-  actionBindPad('RIGHT', 'right');
-  actionBindPad('ANALOG_UP', 'up');
-  actionBindPad('ANALOG_LEFT', 'left');
-  actionBindPad('ANALOG_DOWN', 'down');
-  actionBindPad('ANALOG_RIGHT', 'right');
-  actionBindPad('LSTICK_UP', 'up');
-  actionBindPad('LSTICK_LEFT', 'left');
-  actionBindPad('LSTICK_DOWN', 'down');
-  actionBindPad('LSTICK_RIGHT', 'right');
-  actionBindPad('RSTICK_UP', 'up');
-  actionBindPad('RSTICK_LEFT', 'left');
-  actionBindPad('RSTICK_DOWN', 'down');
-  actionBindPad('RSTICK_RIGHT', 'right');
+// if it doesn't match, does it at least fit-ish?
+function pickFits(players: number, locks: number): boolean {
+  if (locks === 3 || players === locks) {
+    return true;
+  }
+  if (players === 1 && locks === 2) {
+    return true;
+  }
+  return false;
 }
 
 const PICK_PAIRS: Record<number, number> = {
@@ -156,12 +111,21 @@ function randInt(mx: number): number {
   return floor(random() * mx);
 }
 
+type PickAnim = {
+  pick: number;
+  progress: number;
+  failed: boolean;
+  bothfit: boolean;
+  t: number;
+};
 class PickState {
   picks = COMPOUND_PICKS.slice(0).concat([1,2]);
+  is_flipped: boolean[] = [];
   selected = 0;
   lock = [1, 2, 3, 4];
   progress = 0;
   time = 5;
+  anim: null | PickAnim = null;
 }
 let pick_state: PickState;
 function stateLockPickInit(): void {
@@ -171,37 +135,113 @@ function stateLockPickInit(): void {
     pick_state.lock.push(randInt(4) + 1);
   }
 }
-function drawLock(): void {
+function drawLock(dt: number): void {
   let x = game_width - 28;
   let y = 20;
   let z = Z.UI;
+  let { anim, lock } = pick_state;
+  let depressed: Rec<number, number> = {};
+
+  if (anim) {
+    anim.t += dt;
+    let p = anim.t / 1000;
+    if (p > 1) {
+      pick_state.anim = null;
+    } else {
+      let is_double = anim.pick > 4;
+      let yanim = easeOut((p < 0.75 ? p / 0.75 : 1 - (p - 0.75) / 0.25), 2);
+      const ANIM_H = 30;
+      let yoffs = yanim * ANIM_H;
+      let ydown = 12 - (ANIM_H - yoffs);
+      let xoffs = 0;
+      if (!anim.failed && p >= 0.75) {
+        depressed[anim.progress] = 6;
+        if (is_double) {
+          depressed[anim.progress+1] = 6;
+        }
+      } else if (!anim.bothfit) {
+        ydown = min(6, ydown);
+        if (ydown === 6) {
+          let vib = sin(anim.t * 0.03);
+          xoffs = round(vib*vib);
+        }
+        if (is_double) {
+          let pickb = anim.pick % 10;
+          let picka = (anim.pick - pickb) / 10;
+          if (pickFits(picka, lock[anim.progress])) {
+            depressed[anim.progress] = max(0, ydown - 6);
+          } else {
+            depressed[anim.progress] = max(0, ydown);
+          }
+          if (pickFits(pickb, lock[anim.progress + 1])) {
+            depressed[anim.progress+1] = max(0, ydown - 6);
+          } else {
+            depressed[anim.progress+1] = max(0, ydown);
+          }
+        } else {
+          depressed[anim.progress] = max(0, ydown);
+        }
+      } else {
+        depressed[anim.progress] = max(0, ydown - 6);
+        if (is_double) {
+          depressed[anim.progress+1] = max(0, ydown - 6);
+        }
+      }
+      autoAtlas('gfx', `pick${anim.pick}`).withOrigin(ORIGIN_CENTER).draw({
+        x: x - PICK_H/2 + (-pick_state.lock.length + anim.progress + (is_double ? 3 : 2)) * 8 + xoffs,
+        y: y - PICK_W/2 + ydown,
+        w: PICK_W,
+        h: PICK_H,
+        z: z + 1,
+        rot: PI/2,
+      });
+    }
+  }
+
+
   for (let ii = pick_state.lock.length - 1; ii >= 0; --ii) {
     let tumbler = pick_state.lock[ii];
     let leftumbler = pick_state.lock[ii - 1] || 3;
-    let done = pick_state.progress > ii;
-    let leftdone = pick_state.progress > (ii - 1);
-    let vari = tumbler < 3 && leftumbler < 3 && done === leftdone ? 'b' : '';
+    let done = Boolean(pick_state.progress > ii && depressed[ii] !== 0 || depressed[ii]);
+    let leftdone = Boolean(pick_state.progress > (ii - 1) && depressed[ii - 1] !== 0 || depressed[ii-1]);
+    let vari = tumbler < 3 && leftumbler < 3 && (
+      done === leftdone
+    ) ? 'b' : '';
+
+    let yy = y;
+    if (depressed[ii] !== undefined) {
+      yy += depressed[ii]!;
+    } else if (done) {
+      yy += 6;
+    }
+    let tumb_h = 8 - (yy - y);
+
     autoAtlas('gfx', `tumbler-${tumbler}${vari}`).draw({
       x, z,
-      y: done ? y + 6 : y,
+      y: yy,
       w: 8, h: 8,
     });
-    autoAtlas('gfx', `tumbler-${done ? 'down' : 'up'}`).draw({
+    let spr = autoAtlas('gfx', `tumbler-${tumb_h === 2 ? 'down' : 'up'}`);
+    drawBox({
       x, z,
-      y: y + 8,
-      w: 8, h: 8,
-    });
+      y: y + 8 + (8 - tumb_h),
+      w: 8, h: tumb_h,
+    }, spr);
+
     x -= 8;
   }
 }
+
 function usePick(idx: number): void {
   let { picks, lock, progress } = pick_state;
   let pick = picks[idx];
   let failed = false;
+  let bothfit = true;
   if (pick <= 4) {
     if (pick === lock[progress]) {
       pick_state.progress++;
     } else {
+      bothfit = pickFits(pick, lock[progress]);
       failed = true;
     }
   } else {
@@ -218,13 +258,23 @@ function usePick(idx: number): void {
     } else {
       failed = true;
     }
+    if (failed) {
+      bothfit = pickFits(picka, lock[progress]) && pickFits(pickb, lock[progress + 1]);
+    }
   }
-  if (failed) {
+  pick_state.anim = {
+    t: 0,
+    pick,
+    progress,
+    failed,
+    bothfit,
+  };
+  if (failed && !bothfit) {
     // TODO: chance to break
   }
 }
 function drawPicks(): void {
-  let { picks } = pick_state;
+  let { picks, is_flipped } = pick_state;
   if (actionEdge('right')) {
     pick_state.selected = min(pick_state.selected + 1, picks.length - 1);
   }
@@ -235,8 +285,8 @@ function drawPicks(): void {
   let x = floor((game_width - 10*10 - 4*9) / 2);
   let y = 70;
   let z = Z.UI;
-  let w = 10;
-  let h = 60;
+  let w = PICK_W;
+  let h = PICK_H;
 
   for (let ii = 0; ii < picks.length; ++ii) {
     let pick = picks[ii];
@@ -252,16 +302,35 @@ function drawPicks(): void {
       pick_state.selected = ii;
     }
     let selected = ii === pick_state.selected;
-    autoAtlas('gfx', `pick${pick}`).draw({
-      x, z,
-      y: selected ? y - 8 : y,
+    let yy = selected ? y - 8 : y;
+    yy = round(blend(`pick${ii}y`, yy, 100));
+
+    let rot = blend(`pick${ii}rot`, is_flipped[ii] ? PI : 0, 200);
+    let gfx = `pick${pick}`;
+    if (is_flipped[ii]) {
+      if (rot < PI/2) {
+        gfx = `pick${PICK_PAIRS[pick]}`;
+      } else {
+        rot += PI;
+      }
+    } else {
+      if (rot > PI/2) {
+        gfx = `pick${PICK_PAIRS[pick]}`;
+        rot += PI;
+      }
+    }
+    autoAtlas('gfx', gfx).withOrigin(ORIGIN_CENTER).draw({
+      x: x + w/2, z: selected ? z + 1 : 1,
+      y: yy + h /2,
       w, h,
+      rot,
     });
 
     if (spot_ret.long_press || spot_ret.ret && spot_ret.button === 2 || selected && (
       actionEdge('cancel') || actionEdge('up') || actionEdge('down')
     )) {
       picks[ii] = PICK_PAIRS[pick];
+      is_flipped[ii] = !is_flipped[ii];
     } else if (spot_ret.ret || selected && actionEdge('accept')) {
       usePick(ii);
     }
@@ -270,7 +339,7 @@ function drawPicks(): void {
   }
 }
 function stateLockPick(dt: number): void {
-  drawLock();
+  drawLock(dt);
   drawPicks();
 }
 

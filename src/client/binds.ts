@@ -95,3 +95,68 @@ export function actionDown(action_key: ActionKey): number {
   assert(state);
   return state.down;
 }
+
+
+export function bindsInit(): void {
+  actionRegister('up', ACTION_STATE);
+  actionRegister('left', ACTION_STATE);
+  actionRegister('down', ACTION_STATE);
+  actionRegister('right', ACTION_STATE);
+  actionRegister('select', ACTION_EVENT);
+  actionRegister('start', ACTION_EVENT);
+  actionRegister('accept', ACTION_EVENT);
+  actionRegister('cancel', ACTION_EVENT);
+  actionBindKB('UP', 'up');
+  actionBindKB('W', 'up');
+  actionBindKB('I', 'up');
+  actionBindKB('LEFT', 'left');
+  actionBindKB('A', 'left');
+  actionBindKB('J', 'left');
+  actionBindKB('DOWN', 'down');
+  actionBindKB('S', 'down');
+  actionBindKB('K', 'down');
+  actionBindKB('RIGHT', 'right');
+  actionBindKB('D', 'right');
+  actionBindKB('L', 'right');
+  actionBindKB('Z', 'cancel');
+  actionBindKB('X', 'accept');
+  actionBindKB('C', 'cancel');
+  actionBindKB('Q', 'select');
+  actionBindKB('E', 'start');
+  actionBindKB('SPACE', 'accept');
+  actionBindKB('ESC', 'cancel');
+  actionBindKB('BACKSPACE', 'cancel');
+  actionBindKB('BRACKET_LEFT', 'select');
+  actionBindKB('BRACKET_RIGHT', 'start');
+  actionBindKB('SHIFT', 'select');
+  actionBindKB('ENTER', 'start');
+
+  actionBindPad('SELECT', 'accept');
+  actionBindPad('CANCEL', 'cancel');
+  actionBindPad('X', 'accept');
+  actionBindPad('Y', 'cancel');
+  actionBindPad('LEFT_BUMPER', 'accept');
+  actionBindPad('RIGHT_BUMPER', 'accept');
+  actionBindPad('LEFT_TRIGGER', 'cancel');
+  actionBindPad('RIGHT_TRIGGER', 'cancel');
+  actionBindPad('BACK', 'select');
+  actionBindPad('START', 'start');
+  actionBindPad('LEFT_STICK', 'accept');
+  actionBindPad('RIGHT_STICK', 'accept');
+  actionBindPad('UP', 'up');
+  actionBindPad('DOWN', 'down');
+  actionBindPad('LEFT', 'left');
+  actionBindPad('RIGHT', 'right');
+  actionBindPad('ANALOG_UP', 'up');
+  actionBindPad('ANALOG_LEFT', 'left');
+  actionBindPad('ANALOG_DOWN', 'down');
+  actionBindPad('ANALOG_RIGHT', 'right');
+  actionBindPad('LSTICK_UP', 'up');
+  actionBindPad('LSTICK_LEFT', 'left');
+  actionBindPad('LSTICK_DOWN', 'down');
+  actionBindPad('LSTICK_RIGHT', 'right');
+  actionBindPad('RSTICK_UP', 'up');
+  actionBindPad('RSTICK_LEFT', 'left');
+  actionBindPad('RSTICK_DOWN', 'down');
+  actionBindPad('RSTICK_RIGHT', 'right');
+}
