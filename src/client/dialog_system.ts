@@ -34,6 +34,7 @@ import {
   buttonTextDraw,
   panel,
   PanelParam,
+  playUISound,
   suppressNewDOMElemWarnings,
   UIBox,
   uiButtonHeight,
@@ -385,9 +386,11 @@ export function dialogRun(
   if (text_full && !active_state.ff_down) {
     if (actionEdge('up')) {
       active_state.selected = max(0, active_state.selected - 1);
+      playUISound('rollover');
     }
     if (actionEdge('down')) {
       active_state.selected = min(num_buttons - 1, active_state.selected + 1);
+      playUISound('rollover');
     }
     for (let ii = 0; ii < num_buttons; ++ii) {
       let button = buttons![ii];
@@ -412,10 +415,18 @@ export function dialogRun(
         align: button_align,
         markdown: true,
       }, selected ? 'rollover' : 'regular', selected);
-      if (selected && actionEdge('accept') || spot({
+      let go = false;
+      if (selected && actionEdge('accept')) {
+        playUISound('button_click');
+        go = true;
+      }
+      if (spot({
         def: SPOT_DEFAULT_BUTTON,
         ...button_rect,
       }).ret) {
+        go = true;
+      }
+      if (go) {
         active_dialog = null;
         if (button.cb) {
           if (typeof button.cb === 'string') {

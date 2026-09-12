@@ -8,7 +8,7 @@ import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
-import { Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
@@ -30,8 +30,9 @@ import {
 import { blend } from './blend';
 import './dialog_data'; // side effects
 import { dialog, dialogReset, dialogRun, dialogStartup } from './dialog_system';
-import { game_height, game_width } from './globals';
+import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import { finishUnlocking, stateHeist, stateHeistInit } from './heist';
+import { playSound, SOUND_DATA } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -127,8 +128,15 @@ function randInt(mx: number): number {
   return floor(random() * mx);
 }
 
+const GOALS = [
+  '???',
+  'FIND OUT WHO ROBBED ME',
+];
+
 class PlayerState {
   money = 0;
+  picks = 2;
+  goal = 0;
   mode: 'status' | 'unlock' | 'heist' = 'status';
 }
 let player_state = new PlayerState();
@@ -146,6 +154,7 @@ type PickAnim = {
   failed: boolean;
   bothfit: boolean;
   t: number;
+  played_sound: boolean;
 };
 class PickState {
   picks = COMPOUND_PICKS.slice(0).concat([1,2]);
@@ -191,6 +200,10 @@ function drawLock(dt: number): void {
     } else {
       let is_double = anim.pick > 4;
       let yanim = easeOut((p < 0.75 ? p / 0.75 : 1 - (p - 0.75) / 0.25), 2);
+      if (p > 0.75 && !anim.played_sound) {
+        anim.played_sound = true;
+        playSound(anim.failed ? 'pick_miss' : 'pick_hit');
+      }
       const ANIM_H = 30;
       let xoffs = 0;
       let yoffs = yanim * ANIM_H;
@@ -347,6 +360,7 @@ function usePick(idx: number): void {
     progress,
     failed,
     bothfit,
+    played_sound: false,
   };
   if (failed && !bothfit) {
     // TODO: chance to break
@@ -464,8 +478,27 @@ function drawPickingHUD(): void {
 }
 
 function leavePicking(): void {
+  if (pick_state.progress === pick_state.lock.length) {
+    playSound('pickup');
+  } else {
+    playSound('fail');
+  }
   finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus);
   player_state.mode = 'heist';
+}
+
+export function leaveHeist(success: boolean, loot: number): void {
+  if (success && !loot) {
+    // no sound, had a UI action leading up to this
+  } else if (success) {
+    playSound('pickup');
+  } else {
+    playSound('fail');
+  }
+  player_state.money += loot;
+  player_state.mode = 'status';
+  dialogReset();
+  dialog('choose');
 }
 
 function stateLockPick(dt: number): void {
@@ -512,17 +545,39 @@ export function startHeist(index: number): void {
 }
 
 function stateStatus(dt: number): void {
+  let x = 2;
+  let y = 2;
+  let w = game_width - x * 2;
+  let text_height = FONT_HEIGHT;
+  font.draw({
+    style: font_style2,
+    x, y, w,
+    text: 'STATUS',
+  });
+  markdownAuto({
+    font_style: font_style2,
+    x, y, w,
+    align: ALIGN.HRIGHT,
+    text: `GOLD: [c=3]${player_state.money}[/c]`,
+  });
+  y += text_height + 2;
+  markdownAuto({
+    font_style: font_style2,
+    x, y, w,
+    align: ALIGN.HRIGHT,
+    text: `LOCKPICKS: [c=3]${player_state.picks}[/c]`,
+  });
+  y += text_height + 2;
+  markdownAuto({
+    font_style: font_style2,
+    x, y, w,
+    align: ALIGN.HWRAP | ALIGN.HRIGHT,
+    text: `GOAL: [c=3]${GOALS[player_state.goal]}[/c]`,
+  });
   dialogRun(
     dt,
     {
-      x: 0,
-      y: game_height / 2,
-      w: game_width,
-      h: game_height / 2,
-      pad_lr: 3,
-      pad_top: 3,
-      pad_bottom: 3,
-      pad_bottom_with_buttons: 3,
+      ...DIALOG_VIEWPORT,
     },
     false,
   );
@@ -563,6 +618,7 @@ export function main(): void {
     ui_sprites,
     pixel_perfect,
     show_fps: false,
+    ui_sounds: SOUND_DATA,
   })) {
     return;
   }

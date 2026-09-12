@@ -21,8 +21,10 @@ import {
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
 import { blend } from './blend';
-import { game_height, game_width } from './globals';
-import { startUnlocking } from './main';
+import { dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
+import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
+import { leaveHeist, startUnlocking } from './main';
+import { playSound } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
@@ -464,6 +466,7 @@ class HeistState {
   loot = 0;
   floaters: Floater[] = [];
   unlocking = -1;
+  was_on_exit = false;
 }
 
 let heist_state: HeistState;
@@ -479,7 +482,7 @@ export function stateHeistInit(index: number): void {
 }
 function doMotion(dt: number): void {
   let { pos, unlocking } = heist_state;
-  if (unlocking !== -1) {
+  if (unlocking !== -1 || dialogMoveLocked()) {
     return;
   }
   let { cells, chests } = level;
@@ -689,10 +692,12 @@ function doMotion(dt: number): void {
   }
 
   // events on current cell
+  let map_pos: JSVec2 = [pos[0] - 0.5, pos[1] - 0.5];
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
-    if (!chest.opened && v2distSq(chest.pos, [pos[0] - 0.5, pos[1] - 0.5]) < 0.9*0.9) {
+    if (!chest.opened && v2distSq(chest.pos, map_pos) < 0.9*0.9) {
       if (chest.type === 'locked') {
+        playSound('locked');
         heist_state.unlocking = ii;
         heist_state.floaters.push({
           t: 0,
@@ -700,6 +705,7 @@ function doMotion(dt: number): void {
           msg: '[c=1]LOCKED!',
         });
       } else {
+        playSound('pickup');
         chest.opened = true;
         heist_state.loot += chest.value;
         heist_state.floaters.push({
@@ -710,9 +716,28 @@ function doMotion(dt: number): void {
       }
     }
   }
+  let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5;
+  if (on_exit && !heist_state.was_on_exit) {
+    if (!heist_state.loot) {
+      dialogPush({
+        text: 'ARE YOU SURE YOU WANT TO LEAVE?  YOU HAVE NOT FOUND ANYTHING YET.',
+        buttons: [{
+          label: 'NO, CONTINUE LOOTING',
+        }, {
+          label: 'YES, LEAVE',
+          cb: function () {
+            leaveHeist(true, heist_state.loot);
+          }
+        }],
+      });
+    } else {
+      leaveHeist(true, heist_state.loot);
+    }
+  }
+  heist_state.was_on_exit = on_exit;
 }
 
-function drawHeistHUD(): void {
+function drawHeistHUD(dt: number): void {
   let x = 0;
   let y = 0;
   let h = 11;
@@ -729,6 +754,12 @@ function drawHeistHUD(): void {
     x: x + 2, y: y + 2, z: z + 1, w, h,
     text: `[c=2]LOOT: [c=3]$${round(eff_bonus)}[/c][/c]`,
   });
+
+  dialogRun(
+    dt,
+    { ...DIALOG_VIEWPORT },
+    false,
+  );
 }
 
 export function finishUnlocking(success: boolean, bonus: number): void {
@@ -863,5 +894,5 @@ export function stateHeist(dt: number):void {
 
   // camera back to normal for HUD
   camera2d.setAspectFixed(game_width, game_height);
-  drawHeistHUD();
+  drawHeistHUD(dt);
 }
