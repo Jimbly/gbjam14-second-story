@@ -8,7 +8,9 @@ import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { getFrameTimestamp } from 'glov/client/engine';
-import { vec4ColorFromIntColor } from 'glov/client/font';
+import { Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { markdownAuto } from 'glov/client/markdown';
+import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
 import { spot, SPOT_DEFAULT_BUTTON } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
@@ -32,7 +34,8 @@ import {
 } from './binds';
 import { blend } from './blend';
 
-const { max, min, floor, PI, random, round, sin } = Math;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
@@ -46,6 +49,11 @@ const game_height = 144;
 const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
 const PICK_H = 60;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let font: Font;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let font_tiny: Font;
 
 // const palette_font = [
 //   0x081820ff,
@@ -62,6 +70,11 @@ const palette_font = [
 const palette = palette_font.map((c) => {
   return vec4ColorFromIntColor(vec4(), c);
 });
+
+const font_style0 = fontStyleColored(null, palette_font[0]);
+const font_style1 = fontStyleColored(null, palette_font[1]);
+const font_style2 = fontStyleColored(null, palette_font[2]);
+const font_style3 = fontStyleColored(null, palette_font[3]);
 
 
 let sprite_test: Sprite;
@@ -131,13 +144,15 @@ class PickState {
   lock = [1, 2, 3, 4];
   progress = 0;
   time = 5;
+  bonus = 0;
+  last_bonus = 0;
   anim: null | PickAnim = null;
 }
 let pick_state: PickState;
 function stateLockPickInit(): void {
   pick_state = new PickState();
   pick_state.lock = [];
-  for (let ii = 0; ii < 8; ++ii) {
+  for (let ii = 0; ii < 10; ++ii) {
     pick_state.lock.push(randInt(4) + 1);
   }
 }
@@ -286,9 +301,11 @@ function usePick(idx: number): void {
   if (pick <= 4) {
     if (pick === lock[progress]) {
       pick_state.progress++;
+      pick_state.bonus += 5;
     } else {
       bothfit = pickFits(pick, lock[progress]);
       failed = true;
+      pick_state.bonus = max(0, pick_state.bonus - 10);
     }
   } else {
     let pickb = pick % 10;
@@ -306,6 +323,11 @@ function usePick(idx: number): void {
     }
     if (failed) {
       bothfit = pickFits(picka, lock[progress]) && pickFits(pickb, lock[progress + 1]);
+    }
+    if (failed) {
+      pick_state.bonus = max(0, pick_state.bonus - 10);
+    } else {
+      pick_state.bonus += 20;
     }
   }
   pick_state.anim = {
@@ -334,6 +356,7 @@ function drawPicks(): void {
   let w = PICK_W;
   let h = PICK_H;
 
+  let disabled = pick_state.progress === pick_state.lock.length;
   for (let ii = 0; ii < picks.length; ++ii) {
     let pick = picks[ii];
     let rect = {
@@ -342,6 +365,7 @@ function drawPicks(): void {
     let spot_ret = spot({
       def: SPOT_DEFAULT_BUTTON,
       button_long_press: true,
+      disabled,
       ...rect,
     });
     if (spot_ret.focused) {
@@ -372,18 +396,59 @@ function drawPicks(): void {
       rot,
     });
 
-    if (spot_ret.long_press || spot_ret.ret && spot_ret.button === 2 || selected && (
-      actionEdge('cancel') || actionEdge('up') || actionEdge('down')
-    )) {
-      picks[ii] = PICK_PAIRS[pick];
-      is_flipped[ii] = !is_flipped[ii];
-    } else if (spot_ret.ret || selected && actionEdge('accept')) {
-      usePick(ii);
+    if (!disabled) {
+      if (spot_ret.long_press || spot_ret.ret && spot_ret.button === 2 || selected && (
+        actionEdge('cancel') || actionEdge('up') || actionEdge('down')
+      )) {
+        picks[ii] = PICK_PAIRS[pick];
+        is_flipped[ii] = !is_flipped[ii];
+      } else if (spot_ret.ret || selected && actionEdge('accept')) {
+        usePick(ii);
+      }
     }
 
     x += w + 4;
   }
 }
+
+function drawPickingHUD(): void {
+  let x = 2;
+  let y = 2;
+  let h = 11;
+  let w = 83;
+  let z = Z.UI;
+  drawBox({
+    x, y, h, w,
+    z: z - 1,
+  }, autoAtlas('gfx', 'box'));
+
+  let bonus = pick_state.anim ? pick_state.last_bonus : pick_state.bonus;
+  pick_state.last_bonus = bonus;
+  let extra = '';
+  if (pick_state.progress !== pick_state.lock.length) {
+    let selected = pick_state.picks[pick_state.selected];
+    if (selected > 4) {
+      extra = '+20';
+    } else {
+      extra = '+5';
+    }
+  }
+  let eff_bonus = blend('bonus', bonus);
+  let max_bonus = ceil(pick_state.lock.length / 2) * 20;
+  drawBox({
+    x: x + 1,
+    y: y + 1,
+    h: h - 2,
+    w: round((eff_bonus / max_bonus) * (w - 1)),
+    z,
+  }, autoAtlas('gfx', 'bar'));
+  markdownAuto({
+    font_style: font_style1,
+    x: x + 2, y: y + 2, z: z + 1, w, h,
+    text: `BONUS: $${round(eff_bonus)}[c=3]${extra}[/c]`,
+  });
+}
+
 function stateLockPick(dt: number): void {
   autoAtlas('gfx', 'lockpick-bg').draw({
     x: 0, y: 0, w: game_width, h: game_height,
@@ -391,6 +456,7 @@ function stateLockPick(dt: number): void {
   });
   drawLock(dt);
   drawPicks();
+  drawPickingHUD();
 }
 
 function statePlay(dt: number): void {
@@ -427,23 +493,13 @@ export function main(): void {
     netInit({ engine });
   }
 
-  const font_info_04b03x2 = require('./img/font/04b03_8x2.json');
   const font_info_04b03x1 = require('./img/font/04b03_8x1.json');
-  const font_info_palanquin32 = require('./img/font/palanquin32.json');
+  const font_info_gbj14 = require('./img/font/gbj14.json');
   let pixely = 'strict';
-  let font_def;
   let ui_sprites;
+  let font_def = { info: font_info_gbj14, texture: 'font/gbj14' };
+  ui_sprites = spriteSetGet('pixely');
   let pixel_perfect = 1;
-  if (pixely === 'strict') {
-    font_def = { info: font_info_04b03x1, texture: 'font/04b03_8x1' };
-    ui_sprites = spriteSetGet('pixely');
-    pixel_perfect = 1;
-  } else if (pixely && pixely !== 'off') {
-    font_def = { info: font_info_04b03x2, texture: 'font/04b03_8x2' };
-    ui_sprites = spriteSetGet('pixely');
-  } else {
-    font_def = { info: font_info_palanquin32, texture: 'font/palanquin32' };
-  }
 
   if (!engine.startup({
     game_width,
@@ -458,13 +514,22 @@ export function main(): void {
   })) {
     return;
   }
-  // let font = engine.font;
+  font = engine.font;
+  font_tiny = fontCreate(font_info_04b03x1, 'font/04b03_8x1');
 
   // Perfect sizes for pixely modes
   scaleSizes(13 / 32);
   setFontHeight(8);
 
   init();
+
+  markdownSetColorStyles([
+    font_style0,
+    font_style1,
+    font_style2,
+    font_style3,
+  ]);
+
 
   stateLockPickInit();
   engine.setState(statePlay);
