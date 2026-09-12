@@ -3,10 +3,6 @@
 const local_storage = require('glov/client/local_storage');
 local_storage.setStoragePrefix('glovjs-playground'); // Before requiring anything else that might load from this
 
-// Virtual viewport for our game logic
-export const game_width = 160;
-export const game_height = 144;
-
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
@@ -32,6 +28,9 @@ import {
   bindsInit,
 } from './binds';
 import { blend } from './blend';
+import './dialog_data'; // side effects
+import { dialog, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { game_height, game_width } from './globals';
 import { finishUnlocking, stateHeist, stateHeistInit } from './heist';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -53,7 +52,6 @@ const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
 const PICK_H = 60;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let font: Font;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let font_tiny: Font;
@@ -131,9 +129,16 @@ function randInt(mx: number): number {
 
 class PlayerState {
   money = 0;
-  mode: 'unlock' | 'heist' = 'heist';
+  mode: 'status' | 'unlock' | 'heist' = 'status';
 }
 let player_state = new PlayerState();
+
+function newGameInit(): void {
+  player_state = new PlayerState();
+  player_state.mode = 'status';
+  dialogReset();
+  dialog('choose');
+}
 
 type PickAnim = {
   pick: number;
@@ -497,7 +502,30 @@ function topOfFrame(): void {
 }
 
 export function startUnlocking(): void {
+  stateLockPickInit();
   player_state.mode = 'unlock';
+}
+
+export function startHeist(index: number): void {
+  player_state.mode = 'heist';
+  stateHeistInit(index);
+}
+
+function stateStatus(dt: number): void {
+  dialogRun(
+    dt,
+    {
+      x: 0,
+      y: game_height / 2,
+      w: game_width,
+      h: game_height / 2,
+      pad_lr: 3,
+      pad_top: 3,
+      pad_bottom: 3,
+      pad_bottom_with_buttons: 3,
+    },
+    false,
+  );
 }
 
 function statePlay(dt: number): void {
@@ -506,6 +534,8 @@ function statePlay(dt: number): void {
     return stateLockPick(dt);
   } else if (player_state.mode === 'heist') {
     return stateHeist(dt);
+  } else if (player_state.mode === 'status') {
+    return stateStatus(dt);
   }
 }
 
@@ -552,8 +582,15 @@ export function main(): void {
     font_style3,
   ]);
 
+  dialogStartup({
+    font,
+    style_default: font_style1,
+  });
 
-  stateLockPickInit();
-  stateHeistInit();
+  // preload
+  autoAtlas('gfx', 'box');
+
+  newGameInit();
   engine.setState(statePlay);
+  //startUnlocking();
 }

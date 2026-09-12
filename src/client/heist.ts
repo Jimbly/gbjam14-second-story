@@ -21,7 +21,8 @@ import {
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
 import { blend } from './blend';
-import { game_height, game_width, startUnlocking } from './main';
+import { game_height, game_width } from './globals';
+import { startUnlocking } from './main';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
@@ -467,12 +468,12 @@ class HeistState {
 
 let heist_state: HeistState;
 
-export function stateHeistInit(): void {
+export function stateHeistInit(index: number): void {
   genLevel();
   console.log(level.debug());
   heist_state = new HeistState();
   heist_state.pos = [
-    level.entrance[0] + 0.5,
+    level.entrance[0] + 1.5,
     level.entrance[1] + 0.5,
   ];
 }
@@ -726,7 +727,7 @@ function drawHeistHUD(): void {
   let eff_bonus = blend('loot', loot);
   markdownAuto({
     x: x + 2, y: y + 2, z: z + 1, w, h,
-    text: `[c=2]GOLD: [c=3]$${round(eff_bonus)}[/c][/c]`,
+    text: `[c=2]LOOT: [c=3]$${round(eff_bonus)}[/c][/c]`,
   });
 }
 
@@ -776,9 +777,9 @@ export function stateHeist(dt: number):void {
   let x1 = floor(camera2d.x1() / TILESIZE);
   let y0 = floor(camera2d.y0() / TILESIZE);
   let y1 = floor(camera2d.y1() / TILESIZE);
-  let { cells, chests, h } = level;
-  for (let yy = y0; yy <= y1; ++yy) {
-    for (let xx = x0; xx <= x1; ++xx) {
+  let { cells, chests, w, h } = level;
+  for (let yy = y0; yy <= min(y1, h-1); ++yy) {
+    for (let xx = x0; xx <= min(x1, w-1); ++xx) {
       let cellabove = yy && cells[yy - 1][xx] || 'floor';
       let cellleft = cells[yy][xx - 1] || 'floor';
       let cell = cells[yy][xx];
@@ -841,12 +842,12 @@ export function stateHeist(dt: number):void {
     let xx = (floater.pos[0] + 0.5) * TILESIZE;
     let text_height = uiTextHeight();
     let yy = floater.pos[1] * TILESIZE - round(easeOut(t, 2) * TILESIZE) - text_height;
-    let w = uiGetFont().getStringWidth(null, text_height, floater.msg.replace(/\[c=\d\]/g, '')) + 4;
-    xx -= floor(w/2);
+    let text_w = uiGetFont().getStringWidth(null, text_height, floater.msg.replace(/\[c=\d\]/g, '')) + 4;
+    xx -= floor(text_w/2);
     markdownAuto({
       x: xx,
       y: yy,
-      w,
+      w: text_w,
       z: Z.FLOATERS,
       align: ALIGN.HCENTER,
       text: floater.msg,
@@ -854,7 +855,7 @@ export function stateHeist(dt: number):void {
     drawBox({
       x: xx,
       y: yy - 3,
-      w: w,
+      w: text_w,
       h: text_height + 5,
       z: Z.FLOATERS - 1,
     }, autoAtlas('gfx', 'box'));
