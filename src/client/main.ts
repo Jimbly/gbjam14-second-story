@@ -3,7 +3,12 @@
 const local_storage = require('glov/client/local_storage');
 local_storage.setStoragePrefix('glovjs-playground'); // Before requiring anything else that might load from this
 
+// Virtual viewport for our game logic
+export const game_width = 160;
+export const game_height = 144;
+
 import { autoAtlas } from 'glov/client/autoatlas';
+import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
@@ -33,6 +38,7 @@ import {
   bindsInit,
 } from './binds';
 import { blend } from './blend';
+import { stateHeist, stateHeistInit } from './heist';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -40,11 +46,12 @@ const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
 Z.SPRITES = 10;
+Z.WALLS = 5;
+Z.DOORS = 9;
+Z.HERO = 10;
+Z.GUARD = 11;
 Z.REPALETTE = 99999;
 
-// Virtual viewport for our game logic
-const game_width = 160;
-const game_height = 144;
 
 const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
@@ -459,7 +466,8 @@ function stateLockPick(dt: number): void {
   drawPickingHUD();
 }
 
-function statePlay(dt: number): void {
+function topOfFrame(): void {
+  camera2d.setAspectFixed(game_width, game_height);
   effectsQueue(Z.REPALETTE, function () {
     applyCopy({
       shader: 'repalette',
@@ -473,9 +481,14 @@ function statePlay(dt: number): void {
     });
   });
   actionCheckBinds();
+}
 
-  if (1) {
+function statePlay(dt: number): void {
+  topOfFrame();
+  if (0) {
     return stateLockPick(dt);
+  } else if (1) {
+    return stateHeist(dt);
   }
 
   print(null,10,10,1, 'Test!');
@@ -532,5 +545,6 @@ export function main(): void {
 
 
   stateLockPickInit();
+  stateHeistInit();
   engine.setState(statePlay);
 }
