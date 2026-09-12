@@ -471,7 +471,10 @@ function stateLockPick(dt: number): void {
   drawLock(dt);
   drawPicks();
   drawPickingHUD();
-  if (!pick_state.anim && pick_state.progress === pick_state.lock.length) {
+  if (
+    !pick_state.anim && pick_state.progress === pick_state.lock.length ||
+    actionEdge('select')
+  ) {
     leavePicking();
   }
 }

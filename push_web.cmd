@@ -1,0 +1,1 @@
+xcopy /s /y dist\game\build.dev\client\*.* W:\thesilentb.com\gb14\test1\
