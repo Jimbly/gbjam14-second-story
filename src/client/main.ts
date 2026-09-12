@@ -47,11 +47,17 @@ const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
 const PICK_H = 60;
 
+// const palette_font = [
+//   0x081820ff,
+//   0x346856ff,
+//   0x88c070ff,
+//   0xe0f8d0ff,
+// ];
 const palette_font = [
-  0x081820ff,
-  0x346856ff,
-  0x88c070ff,
-  0xe0f8d0ff,
+  0x080408ff,
+  0x682e5bff,
+  0xd27032ff,
+  0xfcea9cff,
 ];
 const palette = palette_font.map((c) => {
   return vec4ColorFromIntColor(vec4(), c);
@@ -136,11 +142,21 @@ function stateLockPickInit(): void {
   }
 }
 function drawLock(dt: number): void {
-  let x = game_width - 28;
-  let y = 20;
-  let z = Z.UI;
   let { anim, lock } = pick_state;
+  let x0 = 17;
+  let x1 = x0 + lock.length * 8 + 10;
+  let x = x1 - 9;
+  let y = 30;
+  let z = Z.UI;
   let depressed: Rec<number, number> = {};
+
+  autoAtlas('gfx', 'lock1').draw({
+    x: 1,
+    y: y - 8,
+    w: 14,
+    h: 26,
+    z: Z.BACKGROUND + 1,
+  });
 
   if (anim) {
     anim.t += dt;
@@ -151,9 +167,13 @@ function drawLock(dt: number): void {
       let is_double = anim.pick > 4;
       let yanim = easeOut((p < 0.75 ? p / 0.75 : 1 - (p - 0.75) / 0.25), 2);
       const ANIM_H = 30;
+      let xoffs = 0;
       let yoffs = yanim * ANIM_H;
       let ydown = 12 - (ANIM_H - yoffs);
-      let xoffs = 0;
+      if (ydown < 0) {
+        xoffs = ydown;
+        ydown = 0;
+      }
       if (!anim.failed && p >= 0.75) {
         depressed[anim.progress] = 6;
         if (is_double) {
@@ -163,7 +183,7 @@ function drawLock(dt: number): void {
         ydown = min(6, ydown);
         if (ydown === 6) {
           let vib = sin(anim.t * 0.03);
-          xoffs = round(vib*vib);
+          xoffs += round(vib*vib);
         }
         if (is_double) {
           let pickb = anim.pick % 10;
@@ -187,13 +207,30 @@ function drawLock(dt: number): void {
           depressed[anim.progress+1] = max(0, ydown - 6);
         }
       }
-      autoAtlas('gfx', `pick${anim.pick}`).withOrigin(ORIGIN_CENTER).draw({
+      let pick_spr = autoAtlas('gfx', `pick${anim.pick}`).withOrigin(ORIGIN_CENTER);
+      let pick_rect = {
         x: x - PICK_H/2 + (-pick_state.lock.length + anim.progress + (is_double ? 3 : 2)) * 8 + xoffs,
         y: y - PICK_W/2 + ydown,
         w: PICK_W,
         h: PICK_H,
         z: z + 1,
         rot: PI/2,
+      };
+      pick_spr.draw(pick_rect);
+      // draw shadow
+      pick_spr.draw({
+        ...pick_rect,
+        x: pick_rect.x,
+        y: pick_rect.y - 1,
+        z: Z.BACKGROUND + 2,
+        color: [0.7, 0.7, 0.7, 1],
+      });
+      pick_spr.draw({
+        ...pick_rect,
+        x: pick_rect.x,
+        y: pick_rect.y + 1,
+        z: Z.BACKGROUND + 2,
+        color: [0.5, 0.5, 0.5, 1],
       });
     }
   }
@@ -230,6 +267,15 @@ function drawLock(dt: number): void {
 
     x -= 8;
   }
+
+  drawBox({
+    x: x0,
+    y: y - 11,
+    h: 30,
+    w: x1 - x + 2,
+    z: Z.BACKGROUND + 3,
+  }, autoAtlas('gfx', 'box'));
+
 }
 
 function usePick(idx: number): void {
@@ -282,8 +328,8 @@ function drawPicks(): void {
     pick_state.selected = max(pick_state.selected - 1, 0);
   }
 
-  let x = floor((game_width - 10*10 - 4*9) / 2);
-  let y = 70;
+  let x = 15;
+  let y = 67;
   let z = Z.UI;
   let w = PICK_W;
   let h = PICK_H;
@@ -339,6 +385,10 @@ function drawPicks(): void {
   }
 }
 function stateLockPick(dt: number): void {
+  autoAtlas('gfx', 'lockpick-bg').draw({
+    x: 0, y: 0, w: game_width, h: game_height,
+    z: Z.BACKGROUND,
+  });
   drawLock(dt);
   drawPicks();
 }

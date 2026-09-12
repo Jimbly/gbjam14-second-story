@@ -124,8 +124,8 @@ export function bindsInit(): void {
   actionBindKB('Q', 'select');
   actionBindKB('E', 'start');
   actionBindKB('SPACE', 'accept');
-  actionBindKB('ESC', 'cancel');
-  actionBindKB('BACKSPACE', 'cancel');
+  actionBindKB('ESC', 'select');
+  actionBindKB('BACKSPACE', 'select');
   actionBindKB('BRACKET_LEFT', 'select');
   actionBindKB('BRACKET_RIGHT', 'start');
   actionBindKB('SHIFT', 'select');

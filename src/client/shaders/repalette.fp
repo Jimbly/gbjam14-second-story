@@ -12,7 +12,7 @@ uniform sampler2D inputTexture0;
 void main()
 {
   vec3 tex = texture2D(inputTexture0, interp_texcoord).rgb;
-  float v = floor(tex.g * 3.1); // 0...3
+  float v = min(3.0, floor((tex.r + tex.g + tex.b) * 1.5)); // 0...3
   vec3 repal = mix(mix(mix(pal0,
     pal1, v),
     pal2, max(0.0, v-1.0)),
