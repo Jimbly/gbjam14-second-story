@@ -1,7 +1,9 @@
 import assert from 'assert';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
+import { DEBUG } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
+import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { drawBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
@@ -23,7 +25,7 @@ import { actionDown } from './binds';
 import { blend } from './blend';
 import { dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
-import { leaveHeist, startUnlocking } from './main';
+import { leaveHeist, PickState, startUnlocking } from './main';
 import { playSound } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -38,7 +40,9 @@ type Chest = {
   pos: JSVec2;
   type: 'simple' | 'locked';
   value: number;
+  progress: number;
   opened: boolean;
+  pick_state: PickState | null;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
 class Level {
@@ -326,7 +330,9 @@ function genLevel(): void {
           pos: [x, y],
           type,
           value,
+          progress: 0,
           opened: false,
+          pick_state: null,
         });
         break;
       }
@@ -356,7 +362,17 @@ function genLevel(): void {
       pos: [level.entrance[0] + 3, level.entrance[1]],
       type: 'locked',
       value: 200,
+      progress: 0,
       opened: false,
+      pick_state: null,
+    });
+    chests.push({
+      pos: [level.entrance[0] + 5, level.entrance[1]],
+      type: 'locked',
+      value: 200,
+      progress: 0,
+      opened: false,
+      pick_state: null,
     });
   }
 }
@@ -467,9 +483,16 @@ class HeistState {
   floaters: Floater[] = [];
   unlocking = -1;
   was_on_exit = false;
+  was_on_chest = -1;
+  time_max = 0;
+  timer = 0;
+  did_alert = false;
 }
 
 let heist_state: HeistState;
+
+const HEIST_TIME = DEBUG ? 60000 : 60000;
+const ALERT_TIME = DEBUG ? 30000 : 30000;
 
 export function stateHeistInit(index: number): void {
   genLevel();
@@ -479,6 +502,7 @@ export function stateHeistInit(index: number): void {
     level.entrance[0] + 1.5,
     level.entrance[1] + 0.5,
   ];
+  heist_state.timer = heist_state.time_max = HEIST_TIME;
 }
 function doMotion(dt: number): void {
   let { pos, unlocking } = heist_state;
@@ -693,29 +717,36 @@ function doMotion(dt: number): void {
 
   // events on current cell
   let map_pos: JSVec2 = [pos[0] - 0.5, pos[1] - 0.5];
+  let on_chest = -1;
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
     if (!chest.opened && v2distSq(chest.pos, map_pos) < 0.9*0.9) {
-      if (chest.type === 'locked') {
-        playSound('locked');
-        heist_state.unlocking = ii;
-        heist_state.floaters.push({
-          t: 0,
-          pos: chest.pos,
-          msg: '[c=1]LOCKED!',
-        });
-      } else {
-        playSound('pickup');
-        chest.opened = true;
-        heist_state.loot += chest.value;
-        heist_state.floaters.push({
-          t: 0,
-          pos: chest.pos,
-          msg: `[c=2]+$[c=3]${chest.value}`,
-        });
-      }
+      on_chest = ii;
     }
   }
+  if (on_chest !== -1 && heist_state.was_on_chest !== on_chest) {
+    let chest = chests[on_chest];
+    if (chest.type === 'locked') {
+      playSound('locked');
+      heist_state.unlocking = on_chest;
+      heist_state.floaters.push({
+        t: 0,
+        pos: chest.pos,
+        msg: '[c=1]LOCKED!',
+      });
+    } else {
+      playSound('pickup');
+      chest.opened = true;
+      heist_state.loot += chest.value;
+      heist_state.floaters.push({
+        t: 0,
+        pos: chest.pos,
+        msg: `[c=2]+$[c=3]${chest.value}`,
+      });
+    }
+  }
+  heist_state.was_on_chest = on_chest;
+
   let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5;
   if (on_exit && !heist_state.was_on_exit) {
     if (!heist_state.loot) {
@@ -741,14 +772,14 @@ function drawHeistHUD(dt: number): void {
   let x = 0;
   let y = 0;
   let h = 11;
-  let w = 83;
+  let w = 66;
   let z = Z.UI;
   drawBox({
     x, y, h, w,
     z: z - 1,
   }, autoAtlas('gfx', 'box'));
 
-  let loot = heist_state.loot;
+  let { loot } = heist_state;
   let eff_bonus = blend('loot', loot);
   markdownAuto({
     x: x + 2, y: y + 2, z: z + 1, w, h,
@@ -762,10 +793,10 @@ function drawHeistHUD(dt: number): void {
   );
 }
 
-export function finishUnlocking(success: boolean, bonus: number): void {
+export function finishUnlocking(success: boolean, bonus: number, partial_progress: number): void {
   let chest = level.chests[heist_state.unlocking];
-  chest.opened = true;
   if (success) {
+    chest.opened = true;
     heist_state.loot += chest.value + bonus;
     heist_state.floaters.push({
       t: 0,
@@ -773,20 +804,82 @@ export function finishUnlocking(success: boolean, bonus: number): void {
       msg: `[c=2]+$[c=3]${chest.value + bonus}`,
     });
   } else {
+    chest.progress = partial_progress;
     heist_state.floaters.push({
       t: 0,
       pos: chest.pos,
-      msg: '[c=1]FAILED!',
+      msg: '[c=1]ABORTED!',
     });
   }
   heist_state.unlocking = -1;
 }
 
+export function doTimer(dt: number): void {
+  let x = 0;
+  let y = 0;
+  let h = 11;
+  let w = game_width / 2 - 4;
+  let z = Z.UI;
+
+  let { timer, time_max, did_alert } = heist_state;
+  x = game_width - w;
+  drawBox({
+    x, y, h, w,
+    z: z - 1,
+  }, autoAtlas('gfx', 'box'));
+
+  let c = 1;
+  if (did_alert) {
+    if (timer % 500 < 125) {
+      c += 2;
+    }
+  }
+  markdownAuto({
+    x: x + 2, y: y + 2, z: z + 1, w: w - 3, h,
+    align: ALIGN.HRIGHT,
+    text: `[c=${c}]TIME LEFT[/c]`,
+  });
+  drawBox({
+    x: x + 1,
+    y: y + 1,
+    h: h - 2,
+    w: round((timer / time_max) * (w - 1)),
+    z,
+  }, autoAtlas('gfx', 'bar'));
+
+
+  if (dialogMoveLocked()) {
+    return;
+  }
+  heist_state.timer -= dt;
+  if (heist_state.timer <= ALERT_TIME && !heist_state.did_alert) {
+    heist_state.did_alert = true;
+    playSound('alert');
+  }
+  if (heist_state.timer <= 0) {
+    heist_state.timer = 0;
+    dialogPush({
+      text: 'OH NO! OUTTA TIME, THIS PLACE IS SURROUNDED.\n\n' +
+        '[c=0]I GUESS I GOTTA DROP EVERYTHING AND GET OUT OF HERE...[/c]',
+      buttons: [{
+        label: 'AT LEAST I WASN\'T CAUGHT...',
+        cb: function () {
+          leaveHeist(false, 0);
+        }
+      }],
+    });
+  }
+}
+
 const TILESIZE = 14;
 export function stateHeist(dt: number):void {
   // center camera on hero
+  if (DEBUG && keyDown(KEYS.SHIFT)) {
+    dt *= 2;
+  }
   camera2d.setAspectFixed(game_width, game_height);
-  let { pos, floaters } = heist_state;
+  let { pos, floaters, unlocking } = heist_state;
+  doTimer(unlocking !== -1 ? 0 : dt);
 
   doMotion(dt);
 
@@ -849,7 +942,7 @@ export function stateHeist(dt: number):void {
   }
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
-    autoAtlas('gfx', chest.opened ? 'chest-opened' : 'chest').draw({
+    autoAtlas('gfx', chest.opened ? 'chest-opened' : chest.pick_state ? 'chest-aborted' : 'chest').draw({
       x: chest.pos[0] * TILESIZE,
       y: chest.pos[1] * TILESIZE,
       w: TILESIZE,
@@ -866,7 +959,8 @@ export function stateHeist(dt: number):void {
       floaters.splice(ii, 1);
       if (heist_state.unlocking !== -1) {
         // start unlocking game
-        startUnlocking();
+        let chest = chests[heist_state.unlocking];
+        chest.pick_state = startUnlocking(chest.pick_state);
       }
       continue;
     }

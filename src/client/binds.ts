@@ -4,7 +4,7 @@ import { keyDownEdge, KEYS, keyUpEdge, PAD, padButtonDownEdge, padButtonUpEdge }
 const { max } = Math;
 
 export type ActionKey = 'up' | 'left' | 'down' | 'right' |
-  'select' | 'start' | 'accept' | 'cancel';
+  /*'select' | 'start' |*/ 'accept' | 'cancel';
 
 export const ACTION_STATE = 1;
 export const ACTION_EVENT = 2;
@@ -102,8 +102,8 @@ export function bindsInit(): void {
   actionRegister('left', ACTION_STATE);
   actionRegister('down', ACTION_STATE);
   actionRegister('right', ACTION_STATE);
-  actionRegister('select', ACTION_EVENT);
-  actionRegister('start', ACTION_EVENT);
+  // actionRegister('select', ACTION_EVENT);
+  // actionRegister('start', ACTION_EVENT);
   actionRegister('accept', ACTION_EVENT);
   actionRegister('cancel', ACTION_EVENT);
   actionBindKB('UP', 'up');
@@ -121,15 +121,16 @@ export function bindsInit(): void {
   actionBindKB('Z', 'cancel');
   actionBindKB('X', 'accept');
   actionBindKB('C', 'cancel');
-  actionBindKB('Q', 'select');
-  actionBindKB('E', 'start');
+  actionBindKB('Q', 'cancel');
+  actionBindKB('E', 'accept');
   actionBindKB('SPACE', 'accept');
-  actionBindKB('ESC', 'select');
-  actionBindKB('BACKSPACE', 'select');
-  actionBindKB('BRACKET_LEFT', 'select');
-  actionBindKB('BRACKET_RIGHT', 'start');
-  actionBindKB('SHIFT', 'select');
-  actionBindKB('ENTER', 'start');
+  actionBindKB('ESC', 'cancel');
+  actionBindKB('BACKSPACE', 'cancel');
+  // actionBindKB('BRACKET_LEFT', 'select');
+  // actionBindKB('BRACKET_RIGHT', 'start');
+  // actionBindKB('SHIFT', 'select');
+  // actionBindKB('BACKSLASH', 'cancel');
+  actionBindKB('ENTER', 'accept');
 
   actionBindPad('SELECT', 'accept');
   actionBindPad('CANCEL', 'cancel');
@@ -139,8 +140,10 @@ export function bindsInit(): void {
   actionBindPad('RIGHT_BUMPER', 'accept');
   actionBindPad('LEFT_TRIGGER', 'cancel');
   actionBindPad('RIGHT_TRIGGER', 'cancel');
-  actionBindPad('BACK', 'select');
-  actionBindPad('START', 'start');
+  // actionBindPad('BACK', 'select');
+  // actionBindPad('START', 'start');
+  actionBindPad('BACK', 'cancel');
+  actionBindPad('START', 'accept');
   actionBindPad('LEFT_STICK', 'accept');
   actionBindPad('RIGHT_STICK', 'accept');
   actionBindPad('UP', 'up');

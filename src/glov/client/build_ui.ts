@@ -123,7 +123,7 @@ function buildUITick(): void {
   if (active_reloads) {
     activeReloadsTick();
   }
-  if (!gbstate && !server_error && !data_errors.length) {
+  if (/*!gbstate && */!server_error && !data_errors.length) {
     return;
   }
   const x0 = camera2d.x0() + PAD;

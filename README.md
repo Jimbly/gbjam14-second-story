@@ -2,9 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* dialog system for choosing next heist
-* allow exiting
-* prompt upon exit if we've found no loot
 * display: time left; loot gained (plus "!" if special loot found)
 * time limit kicks out of heist (no loot)
 * guard patrolling, more as time goes on
@@ -14,6 +11,30 @@ Heist flow
 Lockpicking
 * Start with just 2 picks
 * don't break picks in the entire first couple locks
+
+Town flow - could this be 2D exploration?
+* Explore City
+  * Single story dialog
+  * Random tidbits?
+* Shopping
+  * Buy Lockpicks
+  * Repair Lockpicks
+  * More time upgrade?
+* Heist
+  * 3 default locations
+  * special location if known (or, * on a default if quest objective)
+* Exit to main menu (autosave)
+
+Main menu
+  * intro fade - https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
+  * Continue
+  * New game
+    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks
+  * Options menu
+    * Sound
+    * Music
+    * Palette
+    * Exit
 
 TODO
 * intro: https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231

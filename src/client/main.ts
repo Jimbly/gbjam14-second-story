@@ -9,6 +9,7 @@ import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { inputPadMode } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
@@ -31,7 +32,7 @@ import { blend } from './blend';
 import './dialog_data'; // side effects
 import { dialog, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { finishUnlocking, stateHeist, stateHeistInit } from './heist';
+import { doTimer, finishUnlocking, stateHeist, stateHeistInit } from './heist';
 import { playSound, SOUND_DATA } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -135,7 +136,7 @@ const GOALS = [
 
 class PlayerState {
   money = 0;
-  picks = 2;
+  num_picks = 2;
   goal = 0;
   mode: 'status' | 'unlock' | 'heist' = 'status';
 }
@@ -162,18 +163,33 @@ class PickState {
   selected = 0;
   lock = [1, 2, 3, 4];
   progress = 0;
-  time = 5;
   bonus = 0;
   last_bonus = 0;
+  queued_use = -1;
+  queued_exit = false;
   anim: null | PickAnim = null;
 }
-let pick_state: PickState;
-function stateLockPickInit(): void {
-  pick_state = new PickState();
+export type { PickState };
+export function createPickState(): PickState {
+  let pick_state = new PickState();
   pick_state.lock = [];
   for (let ii = 0; ii < 4; ++ii) {
-    pick_state.lock.push(randInt(4) + 1);
+    pick_state.lock.push(3, randInt(4) + 1);
   }
+  return pick_state;
+}
+let pick_state: PickState;
+function stateLockPickInit(pick_state_in: PickState | null): PickState {
+  pick_state = pick_state_in || createPickState();
+  pick_state.anim = null;
+  pick_state.picks = [1, 2];
+  pick_state.selected = 0;
+  pick_state.queued_use = -1;
+  pick_state.queued_exit = false;
+  for (let ii = 2; ii < player_state.num_picks; ++ii) {
+    pick_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
+  }
+  return pick_state;
 }
 function drawLock(dt: number): void {
   let { anim, lock } = pick_state;
@@ -376,10 +392,12 @@ function drawPicks(): void {
   }
 
   let x = 15;
+  let missing_picks = 10 - picks.length;
   let y = 67;
   let z = Z.UI;
   let w = PICK_W;
   let h = PICK_H;
+  x += floor(missing_picks * (w + 4) / 2);
 
   let disabled = pick_state.progress === pick_state.lock.length;
   for (let ii = 0; ii < picks.length; ++ii) {
@@ -422,13 +440,21 @@ function drawPicks(): void {
     });
 
     if (!disabled) {
+      if (!pick_state.anim && pick_state.queued_use !== -1 && !pick_state.queued_exit) {
+        usePick(pick_state.queued_use);
+        pick_state.queued_use = -1;
+      }
       if (spot_ret.long_press || spot_ret.ret && spot_ret.button === 2 || selected && (
-        actionEdge('cancel') || actionEdge('up') || actionEdge('down')
+        actionEdge('up') || actionEdge('down')
       )) {
         picks[ii] = PICK_PAIRS[pick];
         is_flipped[ii] = !is_flipped[ii];
       } else if (spot_ret.ret || selected && actionEdge('accept')) {
-        usePick(ii);
+        if (pick_state.anim) {
+          pick_state.queued_use = ii;
+        } else {
+          usePick(ii);
+        }
       }
     }
 
@@ -436,9 +462,9 @@ function drawPicks(): void {
   }
 }
 
-function drawPickingHUD(): void {
-  let x = 2;
-  let y = 2;
+function drawPickingHUD(dt: number): void {
+  let x = 0;
+  let y = 0;
   let h = 11;
   let w = 83;
   let z = Z.UI;
@@ -475,6 +501,13 @@ function drawPickingHUD(): void {
     x: x + 2, y: y + 2, z: z + 1, w, h,
     text: `BONUS: $${round(eff_bonus)}[c=3]${extra}[/c]`,
   });
+
+  doTimer(dt);
+  dialogRun(
+    dt,
+    { ...DIALOG_VIEWPORT },
+    false,
+  );
 }
 
 function leavePicking(): void {
@@ -483,7 +516,7 @@ function leavePicking(): void {
   } else {
     playSound('fail');
   }
-  finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus);
+  finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus, pick_state.progress);
   player_state.mode = 'heist';
 }
 
@@ -502,18 +535,22 @@ export function leaveHeist(success: boolean, loot: number): void {
 }
 
 function stateLockPick(dt: number): void {
-  autoAtlas('gfx', 'lockpick-bg').draw({
+  autoAtlas('gfx', inputPadMode() ? 'lockpick-bg' : 'lockpick-bg-kb').draw({
     x: 0, y: 0, w: game_width, h: game_height,
     z: Z.BACKGROUND,
   });
+  drawPickingHUD(dt);
   drawLock(dt);
   drawPicks();
-  drawPickingHUD();
   if (
-    !pick_state.anim && pick_state.progress === pick_state.lock.length ||
-    actionEdge('select')
+    !pick_state.anim && (pick_state.progress === pick_state.lock.length || pick_state.queued_exit) ||
+    actionEdge('cancel')
   ) {
-    leavePicking();
+    if (pick_state.anim) {
+      pick_state.queued_exit = true;
+    } else {
+      leavePicking();
+    }
   }
 }
 
@@ -534,12 +571,13 @@ function topOfFrame(): void {
   actionCheckBinds();
 }
 
-export function startUnlocking(): void {
-  stateLockPickInit();
+export function startUnlocking(pick_state_in: PickState | null): PickState {
   player_state.mode = 'unlock';
+  return stateLockPickInit(pick_state_in);
 }
 
 export function startHeist(index: number): void {
+  dialogReset();
   player_state.mode = 'heist';
   stateHeistInit(index);
 }
@@ -565,7 +603,7 @@ function stateStatus(dt: number): void {
     font_style: font_style2,
     x, y, w,
     align: ALIGN.HRIGHT,
-    text: `LOCKPICKS: [c=3]${player_state.picks}[/c]`,
+    text: `LOCKPICKS: [c=3]${player_state.num_picks}[/c]`,
   });
   y += text_height + 2;
   markdownAuto({
@@ -648,5 +686,6 @@ export function main(): void {
 
   newGameInit();
   engine.setState(statePlay);
-  //startUnlocking();
+  startHeist(0);
+  // startUnlocking(null);
 }

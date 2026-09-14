@@ -22,6 +22,8 @@ export const SOUND_DATA = {
   pick_miss: 'pick_miss',
   pick_hit: 'pick_hit',
 
+  alert: 'alert',
+
 } satisfies Partial<Record<string, UISoundID | string | string[] | UISoundID[]>>;
 
 export type GameSoundID = keyof typeof SOUND_DATA;
