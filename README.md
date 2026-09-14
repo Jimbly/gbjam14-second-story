@@ -3,7 +3,6 @@ GBJam14 - "Old Gold"
 
 Heist flow
 * more guard spawn over time
-* if within light radius, guard chases
 * need some way to see around you while lockpicking (small world view), see if guard is getting closer (plus audio cue)
 
 Lockpicking

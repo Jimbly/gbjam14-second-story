@@ -52,6 +52,7 @@ type Guard = {
   target: JSVec2 | null;
   pause: number;
   bit?: boolean;
+  chasing?: boolean;
   dir: number;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
@@ -372,7 +373,7 @@ function genLevel(): void {
 
   // add guards to random rooms
   let { guards } = level;
-  let desired_guards = 20;
+  let desired_guards = 4;
   let did_guards: Rec<number, boolean> = {};
   while (desired_guards && retries < 100) {
     let roomid = rand.range(rooms.length);
@@ -533,6 +534,7 @@ class HeistState {
   timer = 0;
   did_alert = false;
   caught = false;
+  is_chased = false;
 }
 
 let heist_state: HeistState;
@@ -923,12 +925,63 @@ function pickGoal(guard: Guard): void {
   }
 }
 
+function canSee(pos1: JSVec2, pos2: JSVec2): boolean {
+  let { cells } = level;
+  let [x0, y0] = pos1;
+  x0 = floor(x0);
+  y0 = floor(y0);
+  let [x1, y1] = pos2;
+  x1 = floor(x1);
+  y1 = floor(y1);
+  let dx = abs(x1 - x0);
+  let sx = x0 < x1 ? 1 : -1;
+  let dy = -abs(y1 - y0);
+  let sy = y0 < y1 ? 1 : -1;
+  let error = dx + dy;
+
+  while (true) {
+    let cell = cells[y0][x0];
+    if (cell === 'wall') {
+      return false;
+    }
+    let e2 = 2 * error;
+    if (e2 >= dy) {
+      if (x0 === x1) {
+        break;
+      }
+      error += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      if (y0 === y1) {
+        break;
+      }
+      error += dx;
+      y0 += sy;
+    }
+  }
+  return true;
+}
+
 function doGuards(dt: number): void {
+  let { pos: player_pos } = heist_state;
   let { guards, cells } = level;
   // default speed : 1 pixel per 60fps frame
   let move_dist = dt * 1/14/(1000/60);
+  let any_chasing = false;
+  let guard_radius = heist_state.is_chased ? 2.75 : 2.5;
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
+    if (!guard.target) {
+      guard.chasing = false;
+      if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius) {
+        // potentially in range, do we have line of sight?
+        if (canSee(guard.pos, player_pos)) {
+          guard.chasing = true;
+          guard.goal = [floor(player_pos[0]), floor(player_pos[1])];
+        }
+      }
+    }
     if (!guard.goal) {
       pickGoal(guard);
     }
@@ -999,12 +1052,20 @@ function doGuards(dt: number): void {
       }
       if (match === 2) {
         guard.target = null;
-        guard.pause = 200;
+        guard.pause = guard.chasing ? 33 : 200;
         if (abs(guard.goal[0] + 0.5 - guard.pos[0]) + abs(guard.goal[1] + 0.5 - guard.pos[1]) <= 0.1) {
           guard.goal = null;
         }
       }
     }
+    if (guard.chasing) {
+      any_chasing = true;
+    }
+  }
+
+  if (heist_state.is_chased !== any_chasing) {
+    playSound(any_chasing ? 'guard_chase' : 'guard_forget');
+    heist_state.is_chased = any_chasing;
   }
 }
 

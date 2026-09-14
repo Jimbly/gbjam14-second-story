@@ -23,6 +23,8 @@ export const SOUND_DATA = {
   pick_hit: 'pick_hit',
 
   alert: 'alert',
+  guard_chase: 'guard_alert',
+  guard_forget: 'guard_forget',
   guard_caught: 'fail',
 
 } satisfies Partial<Record<string, UISoundID | string | string[] | UISoundID[]>>;
