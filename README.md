@@ -2,7 +2,7 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* more guard spawn over time
+* more guards spawn over time
 * need some way to see around you while lockpicking (small world view), see if guard is getting closer (plus audio cue)
 
 Lockpicking
@@ -39,3 +39,8 @@ TODO
 * disable mouse for jam submission - touch only
 * if special loot - display "!" or chest icon next to loot bar once found
 * menu selection should be plain text with icon to left instead of button-styled look
+
+Stretch
+* floors are actually black when neither you nor guard is nearby?
+* pulsate guard's light
+* add pulsating lights

@@ -31,12 +31,30 @@ import { leaveHeist, PickState, randInt, startUnlocking } from './main';
 import { playSound } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
+const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, sin, sqrt } = Math;
+
+const DX = [1, -1, 0, 0];
+const DY = [0, 0, 1, -1];
 
 // Room size: ~8x6
 // hallway width: 2
-const DX = [1, -1, 0, 0];
-const DY = [0, 0, 1, -1];
+const HEISTS = [{
+  guards_initial: 0,
+  guards_total: 4,
+  w: 50,
+  h: 40,
+  chests: 10,
+  chests_locked: 5,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
+  room_max_area: 10*8, // subdivide if smaller than this
+  heist_time: 60000,
+  alert_time: 30000,
+  chest_value_simple: 100,
+  chest_value_locked: 200,
+}];
+type HeistDef = typeof HEISTS[number];
 
 type Chest = {
   pos: JSVec2;
@@ -57,8 +75,14 @@ type Guard = {
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
 class Level {
-  w=40;
-  h=50;
+  def: HeistDef;
+  w: number;
+  h: number;
+  constructor(def: HeistDef) {
+    this.def = def;
+    this.w = def.w;
+    this.h = def.h;
+  }
   cells: Cell[][] = [];
   debug(): string {
     let chars = this.cells.map((row) => {
@@ -78,9 +102,9 @@ class Level {
   guards: Guard[] = [];
 }
 let level: Level;
-function genLevel(): void {
-  let rand = randCreate(123456);
-  level = new Level();
+function genLevel(def: HeistDef): void {
+  let rand = randCreate(floor(random() * 1000000));
+  level = new Level(def);
   let { w, h, cells } = level;
   for (let yy = 0; yy < h; ++yy) {
     let row: Cell[] = [];
@@ -156,10 +180,9 @@ function genLevel(): void {
     }
   }
 
-  let room_min_w = 3;
-  let room_min_h = 3;
-  let room_min_area = 9 + rand.range(21);
-  let room_max_area = 10*8;
+  let { room_min_w, room_min_h, room_max_area } = def;
+  let room_min_area = def.room_min_area[0] + rand.range(def.room_min_area[1]);
+
   let rooms: JSVec4[] = [];
   function subdivide(x: number, y: number, roomw: number, roomh: number): void {
     let minw = max(room_min_w, ceil(room_min_area / roomh));
@@ -328,7 +351,8 @@ function genLevel(): void {
   // first to leaf rooms
   let did_chests: Rec<number, boolean> = {};
   let occupied: Rec<number, boolean> = {};
-  let desired_chests = 10;
+  let desired_chests = def.chests;
+  let locked_chests = def.chests_locked;
   function addChest(roomid: number): void {
     let room = rooms[roomid];
     did_chests[roomid] = true;
@@ -337,8 +361,11 @@ function genLevel(): void {
       let x = room[0] + rand.range(room[2]);
       let y = room[1] + rand.range(room[3]);
       if (!countDoors([x, y, 1, 1])) {
-        const type = rand.range(2) ? 'simple' : 'locked';
-        let value = type === 'simple' ? 100 : 200;
+        const type = locked_chests ? 'locked' : 'simple';
+        if (locked_chests) {
+          --locked_chests;
+        }
+        let value = type === 'simple' ? def.chest_value_simple : def.chest_value_locked;
         occupied[x + y * w] = true;
         chests.push({
           pos: [x, y],
@@ -373,7 +400,7 @@ function genLevel(): void {
 
   // add guards to random rooms
   let { guards } = level;
-  let desired_guards = 4;
+  let desired_guards = def.guards_initial;
   let did_guards: Rec<number, boolean> = {};
   while (desired_guards && retries < 100) {
     let roomid = rand.range(rooms.length);
@@ -539,18 +566,16 @@ class HeistState {
 
 let heist_state: HeistState;
 
-const HEIST_TIME = DEBUG ? 60000 : 60000;
-const ALERT_TIME = DEBUG ? 30000 : 30000;
-
 export function stateHeistInit(index: number): void {
-  genLevel();
+  let def = HEISTS[index] || HEISTS[0];
+  genLevel(def);
   console.log(level.debug());
   heist_state = new HeistState();
   heist_state.pos = [
     level.entrance[0] + 1.5,
     level.entrance[1] + 0.5,
   ];
-  heist_state.timer = heist_state.time_max = HEIST_TIME;
+  heist_state.timer = heist_state.time_max = def.heist_time;
 }
 function doMotion(dt: number): void {
   let { pos, unlocking, caught } = heist_state;
@@ -857,6 +882,7 @@ function chooseRandomFloorSub(x0: number, y0: number): JSVec2 {
   return todo[idx];
 }
 function updateGuardDir(guard: Guard): void {
+  assert(guard.target);
   let dx = guard.target[0] - guard.pos[0];
   let dy = guard.target[1] - guard.pos[1];
   guard.dir = abs(dy) > abs(dx) ? dy > 0 ? 0 : 2 : dx > 0 ? 1 : 3;
@@ -1154,7 +1180,7 @@ export function doTimer(dt: number): void {
     return;
   }
   heist_state.timer -= dt;
-  if (heist_state.timer <= ALERT_TIME && !heist_state.did_alert) {
+  if (heist_state.timer <= level.def.alert_time && !heist_state.did_alert) {
     heist_state.did_alert = true;
     playSound('alert');
   }
