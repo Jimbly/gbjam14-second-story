@@ -30,7 +30,7 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialog, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialog, dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import { doTimer, finishUnlocking, stateHeist, stateHeistInit } from './heist';
 import { playSound, SOUND_DATA } from './sound_data';
@@ -46,7 +46,7 @@ Z.CHESTS = 5;
 Z.DOORS = 9;
 Z.HERO = 10;
 Z.GUARD = 11;
-Z.FLOATERS = 15;
+Z.FLOATERS = 17;
 Z.REPALETTE = 99999;
 
 
@@ -125,7 +125,7 @@ const COMPOUND_PICKS: number[] = [];
   }
 }());
 
-function randInt(mx: number): number {
+export function randInt(mx: number): number {
   return floor(random() * mx);
 }
 
@@ -139,6 +139,8 @@ class PlayerState {
   num_picks = 2;
   goal = 0;
   mode: 'status' | 'unlock' | 'heist' = 'status';
+  is_flipped: boolean[] = [];
+  picks: number[] = [];
 }
 let player_state = new PlayerState();
 
@@ -158,8 +160,6 @@ type PickAnim = {
   played_sound: boolean;
 };
 class PickState {
-  picks = COMPOUND_PICKS.slice(0).concat([1,2]);
-  is_flipped: boolean[] = [];
   selected = 0;
   lock = [1, 2, 3, 4];
   progress = 0;
@@ -182,12 +182,14 @@ let pick_state: PickState;
 function stateLockPickInit(pick_state_in: PickState | null): PickState {
   pick_state = pick_state_in || createPickState();
   pick_state.anim = null;
-  pick_state.picks = [1, 2];
   pick_state.selected = 0;
   pick_state.queued_use = -1;
   pick_state.queued_exit = false;
-  for (let ii = 2; ii < player_state.num_picks; ++ii) {
-    pick_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
+  if (player_state.picks.length !== player_state.num_picks) {
+    player_state.picks = [1, 2];
+    for (let ii = 2; ii < player_state.num_picks; ++ii) {
+      player_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
+    }
   }
   return pick_state;
 }
@@ -333,7 +335,8 @@ function drawLock(dt: number): void {
 }
 
 function usePick(idx: number): void {
-  let { picks, lock, progress } = pick_state;
+  let { lock, progress } = pick_state;
+  let { picks } = player_state;
   let pick = picks[idx];
   let failed = false;
   let bothfit = true;
@@ -383,7 +386,7 @@ function usePick(idx: number): void {
   }
 }
 function drawPicks(): void {
-  let { picks, is_flipped } = pick_state;
+  let { picks, is_flipped } = player_state;
   if (actionEdge('right')) {
     pick_state.selected = min(pick_state.selected + 1, picks.length - 1);
   }
@@ -477,7 +480,7 @@ function drawPickingHUD(dt: number): void {
   pick_state.last_bonus = bonus;
   let extra = '';
   if (pick_state.progress !== pick_state.lock.length) {
-    let selected = pick_state.picks[pick_state.selected];
+    let selected = player_state.picks[pick_state.selected];
     if (selected > 4 && pick_state.progress < pick_state.lock.length - 1) {
       extra = '+20';
     } else {
@@ -542,10 +545,10 @@ function stateLockPick(dt: number): void {
   drawPickingHUD(dt);
   drawLock(dt);
   drawPicks();
-  if (
+  if (!dialogMoveLocked() && (
     !pick_state.anim && (pick_state.progress === pick_state.lock.length || pick_state.queued_exit) ||
     actionEdge('cancel')
-  ) {
+  )) {
     if (pick_state.anim) {
       pick_state.queued_exit = true;
     } else {

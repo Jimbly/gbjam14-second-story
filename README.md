@@ -2,11 +2,10 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* display: time left; loot gained (plus "!" if special loot found)
-* time limit kicks out of heist (no loot)
-* guard patrolling, more as time goes on
-* guard touches kicks out of heist
-* patrols and time passes while picking lock, need some way to see around you, see if guard is getting closer (plus audio cue)
+* more guard spawn over time
+* guard light radius
+* if within light radius, guard chases
+* need some way to see around you while lockpicking (small world view), see if guard is getting closer (plus audio cue)
 
 Lockpicking
 * Start with just 2 picks
@@ -29,7 +28,7 @@ Main menu
   * intro fade - https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
   * Continue
   * New game
-    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks
+    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold
   * Options menu
     * Sound
     * Music
@@ -40,3 +39,5 @@ TODO
 * intro: https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
   * and similar framing? scaled up res w/ different palette?
 * disable mouse for jam submission - touch only
+* if special loot - display "!" or chest icon next to loot bar once found
+* menu selection should be plain text with icon to left instead of button-styled look

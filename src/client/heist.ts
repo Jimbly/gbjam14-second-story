@@ -8,7 +8,7 @@ import { markdownAuto } from 'glov/client/markdown';
 import { drawBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
 import { Rec } from 'glov/common/types';
-import { clamp, easeOut, ridx } from 'glov/common/util';
+import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
   JSVec2,
   JSVec4,
@@ -19,17 +19,18 @@ import {
   v2iAdd,
   v2iNormalize,
   v2iScale,
+  v2same,
   v2sub,
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
 import { blend } from './blend';
 import { dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
-import { leaveHeist, PickState, startUnlocking } from './main';
+import { leaveHeist, PickState, randInt, startUnlocking } from './main';
 import { playSound } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
+const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, sin, sqrt } = Math;
 
 // Room size: ~8x6
 // hallway width: 2
@@ -43,6 +44,13 @@ type Chest = {
   progress: number;
   opened: boolean;
   pick_state: PickState | null;
+};
+type Guard = {
+  pos: JSVec2;
+  goal: JSVec2 | null;
+  target: JSVec2 | null;
+  pause: number;
+  bit?: boolean;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
 class Level {
@@ -64,6 +72,7 @@ class Level {
   }
   entrance: JSVec2 = [0,0];
   chests: Chest[] = [];
+  guards: Guard[] = [];
 }
 let level: Level;
 function genLevel(): void {
@@ -315,6 +324,7 @@ function genLevel(): void {
   let { chests } = level;
   // first to leaf rooms
   let did_chests: Rec<number, boolean> = {};
+  let occupied: Rec<number, boolean> = {};
   let desired_chests = 10;
   function addChest(roomid: number): void {
     let room = rooms[roomid];
@@ -326,6 +336,7 @@ function genLevel(): void {
       if (!countDoors([x, y, 1, 1])) {
         const type = rand.range(2) ? 'simple' : 'locked';
         let value = type === 'simple' ? 100 : 200;
+        occupied[x + y * w] = true;
         chests.push({
           pos: [x, y],
           type,
@@ -355,6 +366,37 @@ function genLevel(): void {
     }
     retries = 0;
     addChest(roomid);
+  }
+
+  // add guards to random rooms
+  let { guards } = level;
+  let desired_guards = 20;
+  let did_guards: Rec<number, boolean> = {};
+  while (desired_guards && retries < 100) {
+    let roomid = rand.range(rooms.length);
+    if (did_guards[roomid]) {
+      ++retries;
+      continue;
+    }
+    retries = 0;
+    --desired_guards;
+    let room = rooms[roomid];
+    while (retries < 100) {
+      let x = room[0] + rand.range(room[2]);
+      let y = room[1] + rand.range(room[3]);
+      if (occupied[x + y * w]) {
+        ++retries;
+        continue;
+      }
+      occupied[x + y * w] = true;
+      guards.push({
+        pos: [x + 0.5, y + 0.5],
+        goal: null,
+        target: null,
+        pause: 0,
+      });
+      break;
+    }
   }
 
   if (1) { // debug
@@ -487,6 +529,7 @@ class HeistState {
   time_max = 0;
   timer = 0;
   did_alert = false;
+  caught = false;
 }
 
 let heist_state: HeistState;
@@ -505,8 +548,8 @@ export function stateHeistInit(index: number): void {
   heist_state.timer = heist_state.time_max = HEIST_TIME;
 }
 function doMotion(dt: number): void {
-  let { pos, unlocking } = heist_state;
-  if (unlocking !== -1 || dialogMoveLocked()) {
+  let { pos, unlocking, caught } = heist_state;
+  if (unlocking !== -1 || dialogMoveLocked() || caught) {
     return;
   }
   let { cells, chests } = level;
@@ -766,6 +809,193 @@ function doMotion(dt: number): void {
     }
   }
   heist_state.was_on_exit = on_exit;
+
+  if (!heist_state.caught) {
+    let { guards } = level;
+    for (let ii = 0; ii < guards.length; ++ii) {
+      let guard = guards[ii];
+      if (v2distSq(guard.pos, pos) < 0.8*0.8) {
+        playSound('guard_caught');
+        heist_state.floaters.push({
+          t: 0,
+          pos: [guard.pos[0] - 0.5, guard.pos[1]],
+          msg: '[c=1]GOT YA!',
+        });
+        heist_state.caught = true;
+      }
+    }
+  }
+}
+
+function chooseRandomFloorSub(x0: number, y0: number): JSVec2 {
+  let { w, h, cells } = level;
+  let todo: JSVec2[] = [];
+  let todo_idx = 0;
+  let done: Rec<number, boolean> = {};
+  function push(x: number, y: number): void {
+    done[x + y*w] = true;
+    todo.push([x, y]);
+  }
+  push(x0, y0);
+  while (todo_idx < todo.length) {
+    let [x, y] = todo[todo_idx++];
+    for (let ii = 0; ii < DX.length; ++ii) {
+      let x2 = x + DX[ii];
+      let y2 = y + DY[ii];
+      if (x2 < 0 || y2 < 0 || x2 >= w || y2 >= h || cells[y2][x2] !== 'floor' || done[x2 + y2*w]) {
+        continue;
+      }
+      push(x2, y2);
+    }
+  }
+  let idx = randInt(todo.length);
+  return todo[idx];
+}
+function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
+  let { cells } = level;
+  let options = [];
+  for (let ii = 0; ii < DX.length; ++ii) {
+    let xx = x0 + DX[ii];
+    let yy = y0 + DY[ii];
+    if (cells[yy]?.[xx] === 'floor') {
+      options.push({
+        target: [xx, yy] as JSVec2,
+        goal: chooseRandomFloorSub(xx, yy),
+      });
+    }
+  }
+  let idx = randInt(options.length);
+  let opt = options[idx];
+  guard.target = [
+    opt.target[0] + 0.5,
+    opt.target[1] + 0.5,
+  ];
+  guard.goal = opt.goal;
+}
+function chooseRandomDoor(guard: Guard, x0: number, y0: number): void {
+  let { w, h, cells } = level;
+  let todo: JSVec2[] = [];
+  let todo_idx = 0;
+  let done: Rec<number, boolean> = {};
+  let options: JSVec2[] = [];
+  function push(x: number, y: number): void {
+    done[x + y*w] = true;
+    todo.push([x, y]);
+  }
+  push(x0, y0);
+  while (todo_idx < todo.length) {
+    let [x, y] = todo[todo_idx++];
+    for (let ii = 0; ii < DX.length; ++ii) {
+      let x2 = x + DX[ii];
+      let y2 = y + DY[ii];
+      if (x2 < 0 || y2 < 0 || x2 >= w || y2 >= h || done[x2 + y2*w]) {
+        continue;
+      }
+      let cell = cells[y2][x2];
+      if (cell === 'floor') {
+        push(x2, y2);
+      } else if (cell === 'door') {
+        options.push([x2, y2]);
+      }
+    }
+  }
+  let idx = randInt(options.length);
+  guard.goal = options[idx];
+}
+function pickGoal(guard: Guard): void {
+  let x = floor(guard.pos[0]);
+  let y = floor(guard.pos[1]);
+  let { cells } = level;
+  let cell = cells[y][x];
+  if (cell === 'door') {
+    chooseRandomFloor(guard, x, y);
+  } else {
+    chooseRandomDoor(guard, x, y);
+  }
+}
+
+function doGuards(dt: number): void {
+  let { guards, cells } = level;
+  // default speed : 1 pixel per 60fps frame
+  let move_dist = dt * 1/14/(1000/60);
+  for (let ii = 0; ii < guards.length; ++ii) {
+    let guard = guards[ii];
+    if (!guard.goal) {
+      pickGoal(guard);
+    }
+    assert(guard.goal);
+    if (!guard.target) {
+      let iposx = floor(guard.pos[0]);
+      let iposy = floor(guard.pos[1]);
+      let dx = guard.goal[0] + 0.5 - guard.pos[0];
+      if (abs(dx) < 0.5) {
+        dx = 0;
+      }
+      dx = sign(dx);
+      let dx0 = dx;
+      let dy = guard.goal[1] + 0.5 - guard.pos[1];
+      if (abs(dy) < 0.5) {
+        dy = 0;
+      }
+      dy = sign(dy);
+      let xcell = cells[iposy][iposx + dx];
+      if (xcell !== 'floor' && xcell !== 'door' ||
+        xcell === 'door' && !v2same(guard.goal, [iposx+dx, iposy])
+      ) {
+        dx = 0;
+      }
+      let ycell = cells[iposy + dy]?.[iposx];
+      if (ycell !== 'floor' && ycell !== 'door' ||
+        ycell === 'door' && !v2same(guard.goal, [iposx, iposy+dy])
+      ) {
+        dy = 0;
+      }
+      if (!dx && !dy) {
+        // wall must be blocking, move perpendicular
+        guard.bit = !guard.bit;
+        if (dx0) {
+          dy = guard.bit ? 1 : -1;
+        } else {
+          dx = guard.bit ? 1 : -1;
+        }
+        assert(cells[iposy+dy][iposx+dx] === 'floor');
+      }
+      assert(dx || dy);
+      if (dx && dy) {
+        if (randInt(2)) {
+          dx = 0;
+        } else {
+          dy = 0;
+        }
+      }
+      guard.target = [
+        iposx + dx + 0.5,
+        iposy + dy + 0.5,
+      ];
+    }
+    if (guard.pause) {
+      guard.pause = max(0, guard.pause - dt);
+    } else {
+      guard.pos[0] += sign(guard.target[0] - guard.pos[0]) * move_dist;
+      guard.pos[1] += sign(guard.target[1] - guard.pos[1]) * move_dist;
+      let match = 0;
+      if (abs(guard.target[0] - guard.pos[0]) <= move_dist) {
+        guard.pos[0] = guard.target[0];
+        ++match;
+      }
+      if (abs(guard.target[1] - guard.pos[1]) <= move_dist) {
+        guard.pos[1] = guard.target[1];
+        ++match;
+      }
+      if (match === 2) {
+        guard.target = null;
+        guard.pause = 200;
+        if (abs(guard.goal[0] + 0.5 - guard.pos[0]) + abs(guard.goal[1] + 0.5 - guard.pos[1]) <= 0.1) {
+          guard.goal = null;
+        }
+      }
+    }
+  }
 }
 
 function drawHeistHUD(dt: number): void {
@@ -794,6 +1024,7 @@ function drawHeistHUD(dt: number): void {
 }
 
 export function finishUnlocking(success: boolean, bonus: number, partial_progress: number): void {
+  heist_state.floaters.length = 0;
   let chest = level.chests[heist_state.unlocking];
   if (success) {
     chest.opened = true;
@@ -878,9 +1109,11 @@ export function stateHeist(dt: number):void {
     dt *= 2;
   }
   camera2d.setAspectFixed(game_width, game_height);
-  let { pos, floaters, unlocking } = heist_state;
-  doTimer(unlocking !== -1 ? 0 : dt);
+  let { pos, floaters, unlocking, caught } = heist_state;
+  let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
+  doTimer(unpaused_dt);
 
+  doGuards(unpaused_dt);
   doMotion(dt);
 
   let hx = round(pos[0] * TILESIZE);
@@ -901,7 +1134,7 @@ export function stateHeist(dt: number):void {
   let x1 = floor(camera2d.x1() / TILESIZE);
   let y0 = floor(camera2d.y0() / TILESIZE);
   let y1 = floor(camera2d.y1() / TILESIZE);
-  let { cells, chests, w, h } = level;
+  let { cells, chests, guards, w, h } = level;
   for (let yy = y0; yy <= min(y1, h-1); ++yy) {
     for (let xx = x0; xx <= min(x1, w-1); ++xx) {
       let cellabove = yy && cells[yy - 1][xx] || 'floor';
@@ -951,6 +1184,28 @@ export function stateHeist(dt: number):void {
     });
   }
 
+  for (let ii = 0; ii < guards.length; ++ii) {
+    let guard = guards[ii];
+    autoAtlas('gfx', 'guard').draw({
+      x: round(guard.pos[0] * TILESIZE) - TILESIZE/2,
+      y: round(guard.pos[1] * TILESIZE) - TILESIZE/2,
+      w: TILESIZE,
+      h: TILESIZE,
+      z: Z.GUARDS,
+    });
+    if (DEBUG && false) {
+      uiGetFont().draw({
+        color: 0xFFFFFFff,
+        x: round(guard.pos[0] * TILESIZE),
+        y: round(guard.pos[1] * TILESIZE) - TILESIZE/2 - 8,
+        z: Z.GUARDS + 1,
+        align: ALIGN.HCENTER,
+        text: `${guard.goal}`,
+      });
+    }
+  }
+
+  let z = Z.FLOATERS + 2;
   for (let ii = floaters.length - 1; ii >= 0; --ii) {
     let floater = floaters[ii];
     floater.t += dt;
@@ -973,7 +1228,7 @@ export function stateHeist(dt: number):void {
       x: xx,
       y: yy,
       w: text_w,
-      z: Z.FLOATERS,
+      z,
       align: ALIGN.HCENTER,
       text: floater.msg,
     });
@@ -982,8 +1237,25 @@ export function stateHeist(dt: number):void {
       y: yy - 3,
       w: text_w,
       h: text_height + 5,
-      z: Z.FLOATERS - 1,
+      z: z - 0.1,
     }, autoAtlas('gfx', 'box'));
+    z--;
+  }
+
+  if (!floaters.length && caught) {
+    heist_state.caught = false;
+    heist_state.loot = 0;
+    dialogPush({
+      text: 'THE GUARDS TAKE EVERYTHING YOU\'VE FOUND AND LOCK YOU UP.\n\n' +
+        'LUCKILY YOU\'RE BETTER AT HIDING YOUR LOCKPICKS THAN THEY ARE AT SEARCHING,' +
+        ' SO IN THE NIGHT YOU ESCAPE AND GET BACK TO YOUR TASK...',
+      buttons: [{
+        label: 'PHEW, THAT WAS CLOSE...',
+        cb: function () {
+          leaveHeist(false, 0);
+        }
+      }],
+    });
   }
 
   // camera back to normal for HUD
