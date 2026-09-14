@@ -5,6 +5,7 @@ import { DEBUG } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
+import { BLEND_ADDITIVE } from 'glov/client/sprites';
 import { drawBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
 import { Rec } from 'glov/common/types';
@@ -51,6 +52,7 @@ type Guard = {
   target: JSVec2 | null;
   pause: number;
   bit?: boolean;
+  dir: number;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
 class Level {
@@ -394,6 +396,7 @@ function genLevel(): void {
         goal: null,
         target: null,
         pause: 0,
+        dir: 0,
       });
       break;
     }
@@ -851,6 +854,11 @@ function chooseRandomFloorSub(x0: number, y0: number): JSVec2 {
   let idx = randInt(todo.length);
   return todo[idx];
 }
+function updateGuardDir(guard: Guard): void {
+  let dx = guard.target[0] - guard.pos[0];
+  let dy = guard.target[1] - guard.pos[1];
+  guard.dir = abs(dy) > abs(dx) ? dy > 0 ? 0 : 2 : dx > 0 ? 1 : 3;
+}
 function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
   let { cells } = level;
   let options = [];
@@ -871,6 +879,7 @@ function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
     opt.target[1] + 0.5,
   ];
   guard.goal = opt.goal;
+  updateGuardDir(guard);
 }
 function chooseRandomDoor(guard: Guard, x0: number, y0: number): void {
   let { w, h, cells } = level;
@@ -972,6 +981,7 @@ function doGuards(dt: number): void {
         iposx + dx + 0.5,
         iposy + dy + 0.5,
       ];
+      updateGuardDir(guard);
     }
     if (guard.pause) {
       guard.pause = max(0, guard.pause - dt);
@@ -1186,12 +1196,20 @@ export function stateHeist(dt: number):void {
 
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
-    autoAtlas('gfx', 'guard').draw({
+    autoAtlas('gfx', ['guard-down', 'guard-right', 'guard-up', 'guard-left'][guard.dir]).draw({
       x: round(guard.pos[0] * TILESIZE) - TILESIZE/2,
       y: round(guard.pos[1] * TILESIZE) - TILESIZE/2,
       w: TILESIZE,
       h: TILESIZE,
       z: Z.GUARDS,
+    });
+    autoAtlas('gfx', 'light').draw({
+      x: round(guard.pos[0] * TILESIZE) - 35,
+      y: round(guard.pos[1] * TILESIZE) - 35,
+      w: 70,
+      h: 70,
+      blend: BLEND_ADDITIVE,
+      z: Z.LIGHT,
     });
     if (DEBUG && false) {
       uiGetFont().draw({
