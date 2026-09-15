@@ -451,7 +451,7 @@ function genLevel(def: HeistDef): void {
   if (DEBUG) {
     chests.push({
       pos: [level.entrance[0] + 3, level.entrance[1]],
-      type: 'locked',
+      type: 'simple',
       value: 200,
       progress: 0,
       opened: false,
@@ -579,6 +579,8 @@ class HeistState {
   timer = 0;
   did_alert = false;
   caught = false;
+  touched_first_chest = false;
+  started = false;
 }
 
 let heist_state: HeistState;
@@ -822,6 +824,23 @@ function doMotion(dt: number): void {
   }
   if (on_chest !== -1 && heist_state.was_on_chest !== on_chest) {
     let chest = chests[on_chest];
+    if (!heist_state.touched_first_chest) {
+      heist_state.touched_first_chest = true;
+      if (chest.type === 'simple') {
+        for (let ii = 0; ii < chests.length; ++ii) {
+          let other = chests[ii];
+          if (other.type === 'locked') {
+            // swap, force first chest to be locked!
+            let t = chest.value;
+            chest.value = other.value;
+            other.value = t;
+            chest.type = 'locked';
+            other.type = 'simple';
+            break;
+          }
+        }
+      }
+    }
     if (chest.type === 'locked') {
       playSound('locked');
       heist_state.unlocking = on_chest;
@@ -832,6 +851,7 @@ function doMotion(dt: number): void {
       });
     } else {
       playSound('pickup');
+      heist_state.started = true;
       chest.opened = true;
       heist_state.loot += chest.value;
       heist_state.floaters.push({
@@ -1038,6 +1058,7 @@ function doGuards(dt: number): void {
         if (canSee(guard.pos, player_pos)) {
           guard.chasing = true;
           guard.goal = [floor(player_pos[0]), floor(player_pos[1])];
+          heist_state.started = true;
         }
       }
       if (guard.chasing !== was_chasing) {
@@ -1166,6 +1187,7 @@ export function finishUnlocking(success: boolean, bonus: number, partial_progres
   let chest = level.chests[heist_state.unlocking];
   if (success) {
     chest.opened = true;
+    heist_state.started = true;
     heist_state.loot += chest.value + bonus;
     heist_state.floaters.push({
       t: 0,
@@ -1190,7 +1212,7 @@ export function doTimer(dt: number): void {
   let w = game_width / 2 - 4;
   let z = Z.UI;
 
-  if (!dialogMoveLocked()) {
+  if (!dialogMoveLocked() && heist_state.started) {
     heist_state.timer -= dt;
   }
 
@@ -1201,6 +1223,8 @@ export function doTimer(dt: number): void {
     x, y, h, w,
     z: z - 1,
   }, autoAtlas('gfx', 'box'));
+  // fill in corner so it doesn't flicker
+  drawLine(game_width - 1, y, game_width, y, z-1, 1, 1, palette[1]);
 
   let c = 1;
   if (did_alert) {

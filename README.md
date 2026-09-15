@@ -2,9 +2,8 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* do not start timer until we've robbed a first chest, or a guard has spotted us
-  * hack first chest to always be a locked one
 * add "That's everything!"
+* maybe footsteps should not use spatial, just hack volume to be useful? (vis radius + 3?)
 
 Lockpicking
 * Start with just 2 picks
