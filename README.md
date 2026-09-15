@@ -2,8 +2,8 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* need some way to see around you while lockpicking (small world view), see if guard is getting closer (plus audio cue)
 * share update with sound guy again
+* guard footsteps (spatial)
 * add a back exit somewhere (random hallway end)
 
 Lockpicking

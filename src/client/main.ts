@@ -32,7 +32,7 @@ import { blend } from './blend';
 import './dialog_data'; // side effects
 import { dialog, dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { doTimer, finishUnlocking, stateHeist, stateHeistInit } from './heist';
+import { doHeistView, doTimer, finishUnlocking, stateHeist, stateHeistInit } from './heist';
 import { playSound, SOUND_DATA } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -47,7 +47,7 @@ Z.DOORS = 9;
 Z.LIGHT = 20;
 Z.HERO = 30;
 Z.GUARDS = 31;
-Z.FLOATERS = 50;
+Z.FLOATERS = 150;
 Z.REPALETTE = 99999;
 
 
@@ -197,7 +197,7 @@ function stateLockPickInit(pick_state_in: PickState | null): PickState {
   }
   return pick_state;
 }
-function drawLock(dt: number): void {
+function drawLock(dt: number): number {
   let { anim, lock } = pick_state;
   let x0 = 17;
   let x1 = x0 + lock.length * 8 + 10;
@@ -336,6 +336,7 @@ function drawLock(dt: number): void {
     z: Z.BACKGROUND + 3,
   }, autoAtlas('gfx', 'box'));
 
+  return x1;
 }
 
 function usePick(idx: number): void {
@@ -509,7 +510,6 @@ function drawPickingHUD(dt: number): void {
     text: `BONUS: $${round(eff_bonus)}[c=3]${extra}[/c]`,
   });
 
-  doTimer(dt);
   dialogRun(
     dt,
     { ...DIALOG_VIEWPORT },
@@ -547,8 +547,21 @@ function stateLockPick(dt: number): void {
     z: Z.BACKGROUND,
   });
   drawPickingHUD(dt);
-  drawLock(dt);
+  let world_dt = dt * 0.5;
+  doTimer(world_dt);
+  let lock_x1 = drawLock(dt);
   drawPicks();
+  let heist_view = {
+    x: lock_x1 + 2,
+    y: 13,
+    w: game_width - lock_x1 - 2,
+    h: 36,
+  };
+  drawBox({
+    ...heist_view,
+    z: Z.BACKGROUND + 0.1,
+  }, autoAtlas('gfx', 'box'));
+  doHeistView(world_dt, heist_view);
   if (!dialogMoveLocked() && (
     !pick_state.anim && (pick_state.progress === pick_state.lock.length || pick_state.queued_exit) ||
     actionEdge('cancel')

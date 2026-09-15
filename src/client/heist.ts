@@ -5,8 +5,8 @@ import { DEBUG } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
-import { BLEND_ADDITIVE } from 'glov/client/sprites';
-import { drawBox, drawLine, uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
+import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
 import { Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
@@ -52,7 +52,7 @@ const HEISTS = [{
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
   room_max_area: 10*8, // subdivide if smaller than this
-  heist_time: 60000,
+  heist_time: 120000,
   alert_time: 30000,
   chest_value_simple: 100,
   chest_value_locked: 200,
@@ -433,7 +433,7 @@ function genLevel(def: HeistDef): void {
     }
   }
 
-  if (1) { // debug
+  if (DEBUG) {
     chests.push({
       pos: [level.entrance[0] + 3, level.entrance[1]],
       type: 'locked',
@@ -579,26 +579,31 @@ export function stateHeistInit(index: number): void {
     level.entrance[0] + 1.5,
     level.entrance[1] + 0.5,
   ];
+  if (DEBUG && false) {
+    heist_state.pos[0] += 4;
+  }
   heist_state.timer = heist_state.time_max = def.heist_time;
 }
 function doMotion(dt: number): void {
-  let { pos, unlocking, caught } = heist_state;
-  if (unlocking !== -1 || dialogMoveLocked() || caught) {
+  let { pos, caught } = heist_state;
+  if (dialogMoveLocked() || caught) {
     return;
   }
   let { cells, chests } = level;
   let impulse: JSVec2 = [0, 0];
-  if (actionDown('up')) {
-    impulse[1]--;
-  }
-  if (actionDown('down')) {
-    impulse[1]++;
-  }
-  if (actionDown('left')) {
-    impulse[0]--;
-  }
-  if (actionDown('right')) {
-    impulse[0]++;
+  if (dt) {
+    if (actionDown('up')) {
+      impulse[1]--;
+    }
+    if (actionDown('down')) {
+      impulse[1]++;
+    }
+    if (actionDown('left')) {
+      impulse[0]--;
+    }
+    if (actionDown('right')) {
+      impulse[0]++;
+    }
   }
   dt = min(dt, 1000/15); // below 15fps, just slow down
   v2iNormalize(impulse);
@@ -1200,8 +1205,11 @@ export function doTimer(dt: number): void {
       });
       heist_state.floaters.push({
         t: 0,
-        pos: heist_state.pos,
-        msg: '[c=2]A GUARD JUST WALKED IN!',
+        pos: [
+          heist_state.pos[0] - 0.5,
+          heist_state.pos[1],
+        ],
+        msg: '[c=2]NEW GUARD!',
       });
     }
     if (guards.length < def.guards_total) {
@@ -1235,24 +1243,17 @@ export function doTimer(dt: number): void {
 }
 
 const TILESIZE = 14;
-export function stateHeist(dt: number):void {
-  // center camera on hero
-  if (DEBUG && keyDown(KEYS.SHIFT)) {
-    dt *= 2;
-  }
-  camera2d.setAspectFixed(game_width, game_height);
-  let { pos, floaters, unlocking, caught } = heist_state;
-  let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
-  doTimer(unpaused_dt);
 
-  doGuards(unpaused_dt);
-  doMotion(dt);
+function doHeistViewSub(rect: UIBox): void {
+  let { pos } = heist_state;
 
   let hx = round(pos[0] * TILESIZE);
   let hy = round(pos[1] * TILESIZE);
+  let centerx = floor(rect.x + rect.w/2);
+  let centery = floor(rect.y + rect.h/2);
   camera2d.shift(
-    clamp(-game_width / 2 + hx, 0, level.w * TILESIZE - game_width),
-    clamp(-game_height / 2 + hy, 0, level.h * TILESIZE - game_height));
+    clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
+    clamp(-centery + hy, -rect.y, level.h * TILESIZE - rect.h));
 
   autoAtlas('gfx', ['hero-down', 'hero-right', 'hero-up', 'hero-left'][heist_state.dir]).draw({
     x: hx - TILESIZE/2,
@@ -1344,7 +1345,11 @@ export function stateHeist(dt: number):void {
       });
     }
   }
+}
 
+function doFloaters(dt: number): void {
+  let { floaters, caught } = heist_state;
+  let { chests } = level;
   let z = Z.FLOATERS + 2;
   for (let ii = floaters.length - 1; ii >= 0; --ii) {
     let floater = floaters[ii];
@@ -1397,7 +1402,47 @@ export function stateHeist(dt: number):void {
       }],
     });
   }
+}
 
+export function doHeistView(dt: number, rect: UIBox): void {
+  let { caught } = heist_state;
+  let unpaused_dt = dialogMoveLocked() || caught ? 0 : dt;
+
+  doGuards(unpaused_dt);
+  doMotion(0);
+
+  spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+  doHeistViewSub(rect);
+  spriteClipPop();
+
+  doFloaters(dt);
+
+  camera2d.setAspectFixed(game_width, game_height);
+}
+
+export function stateHeist(dt: number):void {
+  // center camera on hero
+  if (DEBUG && keyDown(KEYS.SHIFT)) {
+    dt *= 2;
+  }
+  camera2d.setAspectFixed(game_width, game_height);
+  let { unlocking, caught } = heist_state;
+  let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
+  doTimer(unpaused_dt);
+
+  doGuards(unpaused_dt);
+  if (unlocking === -1) {
+    doMotion(dt);
+  }
+
+  doHeistViewSub({
+    x: 0,
+    y: 0,
+    w: game_width,
+    h: game_height,
+  });
+
+  doFloaters(dt);
   // camera back to normal for HUD
   camera2d.setAspectFixed(game_width, game_height);
   drawHeistHUD(dt);
