@@ -102,6 +102,7 @@ class Level {
     return chars.map((row) => row.join('')).join('\n');
   }
   entrance: JSVec2 = [0,0];
+  exit: JSVec2 = [0, 0];
   chests: Chest[] = [];
   guards: Guard[] = [];
 }
@@ -171,10 +172,23 @@ function genLevel(def: HeistDef): void {
   let hpath = floor(h * 0.35) + rand.range(floor(h * 0.3));
   level.entrance = [0, hpath];
   carve(1, hpath, w - 2, 2);
-  door(0, hpath);
-  allow_edge = false;
   let vpath = floor(w * 0.4) + rand.range(floor(w * 0.3));
   carve(vpath, 1, 2, h - 2);
+  // eslint-disable-next-line default-case
+  switch (rand.range(3)) {
+    case 0:
+      level.exit = [w - 1, hpath];
+      break;
+    case 1:
+      level.exit = [vpath, 0];
+      break;
+    case 2:
+      level.exit = [vpath, h - 1];
+      break;
+  }
+  door(level.entrance[0], level.entrance[1]);
+  door(level.exit[0], level.exit[1]);
+  allow_edge = false;
 
   function roundRandom(v: number): number {
     if (rand.range(2)) {
@@ -829,7 +843,8 @@ function doMotion(dt: number): void {
   }
   heist_state.was_on_chest = on_chest;
 
-  let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5;
+  let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5 ||
+    v2distSq(map_pos, level.exit) < 0.5 * 0.5;
   if (on_exit && !heist_state.was_on_exit) {
     if (!heist_state.loot) {
       dialogPush({
