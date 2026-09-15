@@ -5,6 +5,7 @@ import { DEBUG } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
+import { sound3DListener, soundPlay } from 'glov/client/sound';
 import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
 import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
@@ -42,7 +43,7 @@ let palette: Vec4[];
 // Room size: ~8x6
 // hallway width: 2
 const HEISTS = [{
-  guards_initial: 0,
+  guards_initial: DEBUG ? 20 : 0,
   guards_total: 4,
   w: 50,
   h: 40,
@@ -564,7 +565,6 @@ class HeistState {
   timer = 0;
   did_alert = false;
   caught = false;
-  is_chased = false;
 }
 
 let heist_state: HeistState;
@@ -998,16 +998,25 @@ function canSee(pos1: JSVec2, pos2: JSVec2): boolean {
   return true;
 }
 
+const SOUND_SPATIAL_SCALE = 5;
 function doGuards(dt: number): void {
   let { pos: player_pos } = heist_state;
+
+  sound3DListener({
+    pos: [player_pos[0] * SOUND_SPATIAL_SCALE, player_pos[1] * SOUND_SPATIAL_SCALE, 0],
+    forward: [0, 0, 1],
+    up: [0, -1, 0],
+  });
+
   let { guards, cells } = level;
   // default speed : 1 pixel per 60fps frame
   let move_dist = dt * 1/14/(1000/60);
-  let any_chasing = false;
-  let guard_radius = heist_state.is_chased ? 2.75 : 2.5;
+  let closest_footstep: JSVec2 | null = null;
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
     if (!guard.target) {
+      let was_chasing = guard.chasing;
+      let guard_radius = guard.chasing ? 2.75 : 2.5;
       guard.chasing = false;
       if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius) {
         // potentially in range, do we have line of sight?
@@ -1015,6 +1024,9 @@ function doGuards(dt: number): void {
           guard.chasing = true;
           guard.goal = [floor(player_pos[0]), floor(player_pos[1])];
         }
+      }
+      if (guard.chasing !== was_chasing) {
+        playSound(guard.chasing ? 'guard_chase' : 'guard_forget');
       }
     }
     if (!guard.goal) {
@@ -1037,13 +1049,13 @@ function doGuards(dt: number): void {
       dy = sign(dy);
       let xcell = cells[iposy][iposx + dx];
       if (xcell !== 'floor' && xcell !== 'door' ||
-        xcell === 'door' && !v2same(guard.goal, [iposx+dx, iposy])
+        !guard.chasing && xcell === 'door' && !v2same(guard.goal, [iposx+dx, iposy])
       ) {
         dx = 0;
       }
       let ycell = cells[iposy + dy]?.[iposx];
       if (ycell !== 'floor' && ycell !== 'door' ||
-        ycell === 'door' && !v2same(guard.goal, [iposx, iposy+dy])
+        !guard.chasing && ycell === 'door' && !v2same(guard.goal, [iposx, iposy+dy])
       ) {
         dy = 0;
       }
@@ -1070,6 +1082,9 @@ function doGuards(dt: number): void {
         iposy + dy + 0.5,
       ];
       updateGuardDir(guard);
+      if (!closest_footstep || v2distSq(guard.pos, player_pos) < v2distSq(closest_footstep, player_pos)) {
+        closest_footstep = guard.pos;
+      }
     }
     if (guard.pause) {
       guard.pause = max(0, guard.pause - dt);
@@ -1093,14 +1108,16 @@ function doGuards(dt: number): void {
         }
       }
     }
-    if (guard.chasing) {
-      any_chasing = true;
-    }
   }
 
-  if (heist_state.is_chased !== any_chasing) {
-    playSound(any_chasing ? 'guard_chase' : 'guard_forget');
-    heist_state.is_chased = any_chasing;
+  if (closest_footstep) {
+    soundPlay('footstep', {
+      pos: [
+        closest_footstep[0] * SOUND_SPATIAL_SCALE,
+        closest_footstep[1] * SOUND_SPATIAL_SCALE,
+        SOUND_SPATIAL_SCALE
+      ],
+    });
   }
 }
 
