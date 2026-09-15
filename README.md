@@ -2,12 +2,13 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* more guards spawn over time
 * need some way to see around you while lockpicking (small world view), see if guard is getting closer (plus audio cue)
+* share update with sound guy again
+* add a back exit somewhere (random hallway end)
 
 Lockpicking
 * Start with just 2 picks
-* don't break picks in the entire first couple locks
+* probably no breaking of picks, it just punishes people who are learning? maybe only in hard zone?
 
 Town flow - could this be 2D exploration?
 * Explore City
@@ -26,7 +27,7 @@ Main menu
   * intro fade - https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
   * Continue
   * New game
-    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold
+    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
   * Options menu
     * Sound
     * Music

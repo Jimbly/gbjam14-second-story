@@ -22,7 +22,7 @@ import {
 } from 'glov/client/ui';
 import { Rec } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { vec2, vec4 } from 'glov/common/vmath';
+import { vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
@@ -74,6 +74,9 @@ const palette_font = [
 const palette = palette_font.map((c) => {
   return vec4ColorFromIntColor(vec4(), c);
 });
+export function getPalette(): Vec4[] {
+  return palette;
+}
 
 const font_style0 = fontStyleColored(null, palette_font[0]);
 const font_style1 = fontStyleColored(null, palette_font[1]);

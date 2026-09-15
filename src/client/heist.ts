@@ -6,7 +6,7 @@ import { ALIGN } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { BLEND_ADDITIVE } from 'glov/client/sprites';
-import { drawBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { drawBox, drawLine, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
 import { Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
@@ -22,12 +22,13 @@ import {
   v2iScale,
   v2same,
   v2sub,
+  Vec4,
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
 import { blend } from './blend';
 import { dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
-import { leaveHeist, PickState, randInt, startUnlocking } from './main';
+import { getPalette, leaveHeist, PickState, randInt, startUnlocking } from './main';
 import { playSound } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -35,6 +36,8 @@ const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, si
 
 const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
+
+let palette: Vec4[];
 
 // Room size: ~8x6
 // hallway width: 2
@@ -567,6 +570,7 @@ class HeistState {
 let heist_state: HeistState;
 
 export function stateHeistInit(index: number): void {
+  palette = getPalette();
   let def = HEISTS[index] || HEISTS[0];
   genLevel(def);
   console.log(level.debug());
@@ -1149,7 +1153,12 @@ export function doTimer(dt: number): void {
   let w = game_width / 2 - 4;
   let z = Z.UI;
 
+  if (!dialogMoveLocked()) {
+    heist_state.timer -= dt;
+  }
+
   let { timer, time_max, did_alert } = heist_state;
+
   x = game_width - w;
   drawBox({
     x, y, h, w,
@@ -1175,11 +1184,37 @@ export function doTimer(dt: number): void {
     z,
   }, autoAtlas('gfx', 'bar'));
 
+  let { guards, def, entrance } = level;
+  if (guards.length < def.guards_total) {
+    let time_per_guard = (time_max - def.alert_time) / (def.guards_total - def.guards_initial);
+    let expected_guards = def.guards_initial + floor((time_max - timer) / time_per_guard);
+    if (guards.length < expected_guards) {
+      // spawn a guard
+      playSound('guard_arrived');
+      guards.push({
+        pos: [entrance[0] + 0.5, entrance[1] + 0.5],
+        target: null,
+        goal: null,
+        pause: 0,
+        dir: 1,
+      });
+      heist_state.floaters.push({
+        t: 0,
+        pos: heist_state.pos,
+        msg: '[c=2]A GUARD JUST WALKED IN!',
+      });
+    }
+    if (guards.length < def.guards_total) {
+      let guard_spawn_timer = (timer - def.alert_time) % time_per_guard;
+      drawLine(x, y + h, x + w, y + h, z, 1, 1, palette[0]);
+      drawLine(x, y + h, x + w * (1 - guard_spawn_timer/time_per_guard), y + h, z + 1, 1, 1, palette[3]);
+    }
+  }
+
 
   if (dialogMoveLocked()) {
     return;
   }
-  heist_state.timer -= dt;
   if (heist_state.timer <= level.def.alert_time && !heist_state.did_alert) {
     heist_state.did_alert = true;
     playSound('alert');
