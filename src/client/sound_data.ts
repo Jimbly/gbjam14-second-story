@@ -16,6 +16,7 @@ export const SOUND_DATA = {
   rollover: { file: 'rollover', volume: 0.25 },
 
   pickup: 'pickup',
+  thatsall: 'pickup',
   fail: 'fail',
   locked: 'locked',
 

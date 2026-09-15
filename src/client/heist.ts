@@ -43,7 +43,22 @@ let palette: Vec4[];
 // Room size: ~8x6
 // hallway width: 2
 const HEISTS = [{
-  guards_initial: DEBUG ? 20 : 0,
+  guards_initial: 0,
+  guards_total: 4,
+  w: 50,
+  h: 40,
+  chests: DEBUG ? 0 : 2,
+  chests_locked: DEBUG? 0 : 1,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
+  room_max_area: 10*8, // subdivide if smaller than this
+  heist_time: 120000,
+  alert_time: 30000,
+  chest_value_simple: 100,
+  chest_value_locked: 200,
+}, {
+  guards_initial: 0,
   guards_total: 4,
   w: 50,
   h: 40,
@@ -459,7 +474,7 @@ function genLevel(def: HeistDef): void {
     });
     chests.push({
       pos: [level.entrance[0] + 5, level.entrance[1]],
-      type: 'locked',
+      type: 'simple',
       value: 200,
       progress: 0,
       opened: false,
@@ -581,6 +596,7 @@ class HeistState {
   caught = false;
   touched_first_chest = false;
   started = false;
+  did_thats_all = false;
 }
 
 let heist_state: HeistState;
@@ -816,10 +832,14 @@ function doMotion(dt: number): void {
   // events on current cell
   let map_pos: JSVec2 = [pos[0] - 0.5, pos[1] - 0.5];
   let on_chest = -1;
+  let unopened_chests = 0;
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
-    if (!chest.opened && v2distSq(chest.pos, map_pos) < 0.9*0.9) {
-      on_chest = ii;
+    if (!chest.opened) {
+      unopened_chests++;
+      if (v2distSq(chest.pos, map_pos) < 0.9*0.9) {
+        on_chest = ii;
+      }
     }
   }
   if (on_chest !== -1 && heist_state.was_on_chest !== on_chest) {
@@ -862,6 +882,16 @@ function doMotion(dt: number): void {
     }
   }
   heist_state.was_on_chest = on_chest;
+
+  if (!unopened_chests && !heist_state.did_thats_all) {
+    heist_state.did_thats_all = true;
+    playSound('thatsall');
+    heist_state.floaters.push({
+      t: 0,
+      pos: [pos[0] - 0.5, pos[1]],
+      msg: '[c=3]THAT\'S EVERYTHING!',
+    });
+  }
 
   let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5 ||
     v2distSq(map_pos, level.exit) < 0.5 * 0.5;

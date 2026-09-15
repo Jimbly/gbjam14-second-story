@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 Heist flow
-* add "That's everything!"
 * maybe footsteps should not use spatial, just hack volume to be useful? (vis radius + 3?)
 
 Lockpicking
