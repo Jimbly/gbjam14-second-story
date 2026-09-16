@@ -7,6 +7,7 @@ import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { sound3DListener, soundPlay } from 'glov/client/sound';
 import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
+import { active as transitionActive } from 'glov/client/transition';
 import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
 import { DataObject, Rec } from 'glov/common/types';
@@ -29,9 +30,23 @@ import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
 import { dialog, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
-import { getPalette, leaveHeist, PickState, randInt, startUnlocking } from './main';
-import { playSound } from './sound_data';
+import {
+  getPalette,
+  leaveHeist,
+  PickState,
+  queueTransitionDither,
+  queueTransitionDitherUpDown,
+  randInt,
+  startUnlocking
+} from './main';
 import { optionsMenu } from './options';
+import { playSound } from './sound_data';
+
+const LEVELS = {
+  town: require('./town.json'), // eslint-disable-line n/global-require
+  jail: require('./jail.json'), // eslint-disable-line n/global-require
+  shop: require('./shop.json'), // eslint-disable-line n/global-require
+};
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, sin, sqrt } = Math;
@@ -832,6 +847,8 @@ function initMap(name: string, json: DataObject): void {
   }
 }
 
+let end_of_frame_load: null | keyof typeof LEVELS;
+
 function doEvent(event: MapEvent): void {
   switch (event.type) {
     case 'exit':
@@ -843,31 +860,31 @@ function doEvent(event: MapEvent): void {
           }, {
             label: 'YES, LEAVE',
             cb: function () {
+              queueTransitionDitherUpDown(500);
               leaveHeist(true, heist_state.loot);
             }
           }],
         });
       } else {
+        queueTransitionDitherUpDown(500);
         leaveHeist(true, heist_state.loot);
       }
       break;
     case 'shopenter':
       if (cur_map === 'town') {
-        // eslint-disable-next-line n/global-require
-        initMap('shop', require('./shop.json'));
+        end_of_frame_load = 'shop';
       } else {
-        // eslint-disable-next-line n/global-require
-        initMap('town', require('./town.json'));
+        end_of_frame_load = 'town';
       }
+      queueTransitionDither();
       break;
     case 'jailenter':
       if (cur_map === 'town') {
-        // eslint-disable-next-line n/global-require
-        initMap('jail', require('./jail.json'));
+        end_of_frame_load = 'jail';
       } else {
-        // eslint-disable-next-line n/global-require
-        initMap('town', require('./town.json'));
+        end_of_frame_load = 'town';
       }
+      queueTransitionDither();
       break;
     case 'startheist':
       dialog('choose');
@@ -1596,6 +1613,7 @@ export function doTimer(dt: number): void {
       buttons: [{
         label: 'AT LEAST I WASN\'T CAUGHT...',
         cb: function () {
+          queueTransitionDitherUpDown(500);
           leaveHeist(false, 0);
         }
       }],
@@ -1737,6 +1755,7 @@ function doFloaters(dt: number): void {
       buttons: [{
         label: 'PHEW, THAT WAS CLOSE...',
         cb: function () {
+          queueTransitionDitherUpDown(500);
           leaveHeist(false, 0);
         }
       }],
@@ -1765,6 +1784,9 @@ export function stateHeist(dt: number, is_town: boolean):void {
   if (DEBUG && keyDown(KEYS.SHIFT)) {
     dt *= 2;
   }
+  if (transitionActive()) {
+    dt = 0;
+  }
   camera2d.setAspectFixed(game_width, game_height);
   let { unlocking, caught } = heist_state;
   let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
@@ -1791,7 +1813,14 @@ export function stateHeist(dt: number, is_town: boolean):void {
   drawHeistHUD(dt, is_town);
 
   if (actionEdge('cancel')) {
+    playSound('button_click');
+    queueTransitionDitherUpDown();
     optionsMenu('game');
+  }
+
+  if (end_of_frame_load) {
+    initMap(end_of_frame_load, LEVELS[end_of_frame_load]);
+    end_of_frame_load = null;
   }
 }
 

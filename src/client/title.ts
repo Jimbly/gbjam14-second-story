@@ -2,10 +2,20 @@ import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animat
 import { DEBUG, setState } from 'glov/client/engine';
 import { ALIGN, fontStyle } from 'glov/client/font';
 import { eatAllInput, mouseDownAnywhere } from 'glov/client/input';
-import { uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { active as transitionActive } from 'glov/client/transition';
+import { drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { actionEdge } from './binds';
 import { game_height, game_width } from './globals';
-import { canLoad, getPaletteFont, loadGame, newGameInit, topOfFrame } from './main';
+import {
+  canLoad,
+  getPalette,
+  getPaletteFont,
+  loadGame,
+  newGameInit,
+  queueTransitionDither,
+  queueTransitionDitherUpDown,
+  topOfFrame,
+} from './main';
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
 
@@ -19,6 +29,7 @@ let title_alpha = {
 };
 let selection = 0;
 let inited_once = false;
+let title_frame = 0;
 function stateTitleInit(): void {
   if (inited_once) {
     return;
@@ -43,6 +54,19 @@ function stateTitleInit(): void {
 function stateTitle(dt: number): void {
   topOfFrame();
   let palette_font = getPaletteFont();
+  let palette = getPalette();
+
+  if (title_frame === 0) {
+    drawRect(0, 0, game_width, game_height, 1, palette[1]);
+    queueTransitionDither(350);
+    ++title_frame;
+    return;
+  }
+  if (title_frame === 1) {
+    if (transitionActive()) {
+      return;
+    }
+  }
 
   let font = uiGetFont();
   let text_height = uiTextHeight();
@@ -127,6 +151,8 @@ function stateTitle(dt: number): void {
         text: '▶',
       });
       if (actionEdge('accept')) {
+        playSound('button_click');
+        queueTransitionDitherUpDown(500);
         loadGame();
       }
     }
@@ -147,6 +173,8 @@ function stateTitle(dt: number): void {
         text: '▶',
       });
       if (actionEdge('accept')) {
+        playSound('button_click');
+        queueTransitionDitherUpDown(500);
         newGameInit();
       }
     }
@@ -167,6 +195,8 @@ function stateTitle(dt: number): void {
         text: '▶',
       });
       if (actionEdge('accept')) {
+        playSound('button_click');
+        queueTransitionDitherUpDown();
         optionsMenu('title');
       }
     }

@@ -5,7 +5,7 @@ import { settingsGet, settingsRegister, settingsSet } from 'glov/client/settings
 import { uiGetFont } from 'glov/client/ui';
 import { actionEdge } from './binds';
 import { game_height, game_width } from './globals';
-import { backToGame, getPaletteFont, saveGame, topOfFrame } from './main';
+import { backToGame, getPaletteFont, queueTransitionDitherUpDown, saveGame, topOfFrame } from './main';
 import { playSound } from './sound_data';
 import { titleInit } from './title';
 
@@ -80,12 +80,15 @@ function stateOptionsMenu(dt: number): void {
   if (selection === selidx) {
     if (actionEdge('accept')) {
       settingsSet('volume_sound', (round(settingsGet('volume_sound') * 10) % 10) / 10);
+      playSound('button_click');
     }
     if (actionEdge('right')) {
       settingsSet('volume_sound', min(1, settingsGet('volume_sound') + 0.1));
+      playSound('button_click');
     }
     if (actionEdge('left')) {
       settingsSet('volume_sound', min(1, settingsGet('volume_sound') - 0.1));
+      playSound('button_click');
     }
   }
   ++selidx;
@@ -101,12 +104,15 @@ function stateOptionsMenu(dt: number): void {
   if (selection === selidx) {
     if (actionEdge('accept')) {
       settingsSet('volume_music', (round(settingsGet('volume_music') * 10) % 10) / 10);
+      playSound('button_click');
     }
     if (actionEdge('right')) {
       settingsSet('volume_music', min(1, settingsGet('volume_music') + 0.1));
+      playSound('button_click');
     }
     if (actionEdge('left')) {
       settingsSet('volume_music', min(1, settingsGet('volume_music') - 0.1));
+      playSound('button_click');
     }
   }
   ++selidx;
@@ -120,8 +126,9 @@ function stateOptionsMenu(dt: number): void {
   });
   indicator();
   if (selection === selidx) {
-    if (actionEdge('accept')) {
+    if (actionEdge('accept') || actionEdge('left') || actionEdge('right')) {
       settingsSet('palette', 1 - settingsGet('palette'));
+      playSound('button_click');
     }
   }
   ++selidx;
@@ -136,6 +143,8 @@ function stateOptionsMenu(dt: number): void {
     });
     indicator();
     if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
+      playSound('button_click');
+      queueTransitionDitherUpDown();
       titleInit();
     }
     ++selidx;
@@ -150,6 +159,8 @@ function stateOptionsMenu(dt: number): void {
     indicator();
     if (selection === selidx) {
       if (actionEdge('accept')) {
+        playSound('button_click');
+        queueTransitionDitherUpDown(500);
         saveGame();
         titleInit();
       }
@@ -165,6 +176,8 @@ function stateOptionsMenu(dt: number): void {
     });
     indicator();
     if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
+      playSound('button_click');
+      queueTransitionDitherUpDown();
       backToGame();
     }
     ++selidx;

@@ -15,8 +15,13 @@ import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
+import { settingsGet } from 'glov/client/settings';
+import { shaderCreate } from 'glov/client/shaders';
 import { spot, SPOT_DEFAULT_BUTTON } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
+import { Shader, Sprite, spriteCreate, spriteQueueRaw4, Texture } from 'glov/client/sprites';
+import { textureBlack } from 'glov/client/textures';
+import * as transition from 'glov/client/transition';
 import {
   drawBox,
   scaleSizes,
@@ -35,10 +40,9 @@ import './dialog_data'; // side effects
 import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import { doHeistView, doTimer, finishUnlocking, initTownMap, stateHeist, stateHeistInit } from './heist';
+import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
-import { optionsMenu } from './options';
-import { settingsGet } from 'glov/client/settings';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -92,13 +96,100 @@ const font_style1 = fontStyleColored(null, palette_font[1]);
 const font_style2 = fontStyleColored(null, palette_font[2]);
 const font_style3 = fontStyleColored(null, palette_font[3]);
 
+let shader_dither: Shader;
+let shader_dither_transition: Shader;
+let sprite_dither: Sprite;
+const dither_uvs = vec4(0, 0, game_width / 4, game_height / 4);
 
 function init(): void {
   registerShader('repalette', {
     fp: 'shaders/repalette.fp',
   });
 
+  shader_dither = shaderCreate('shaders/dither.fp');
+  shader_dither_transition = shaderCreate('shaders/dither_transition.fp');
+
+  sprite_dither = spriteCreate({
+    name: 'dither',
+    wrap_s: gl.REPEAT,
+    wrap_t: gl.REPEAT,
+  });
+
   bindsInit();
+}
+
+function fadeDither(
+  fade_time: number,
+  updown: boolean,
+  z: number,
+  initial: Texture,
+  ms_since_start: number,
+  force_end: boolean
+): string {
+  let progress = min(ms_since_start / fade_time, 1);
+  let color = vec4(1, 1, 1, 1);
+  camera2d.setNormalized();
+
+  if (updown) {
+    if (progress < 0.5) {
+      let alpha = (0.5 - progress) * 2;
+      spriteQueueRaw4([textureBlack()],
+        0, 0, 0, 1,
+        1, 1, 1, 0,
+        z,
+        0, 1, 1, 0,
+        color);
+      spriteQueueRaw4([initial, sprite_dither.texs[0]],
+        0, 0, 0, 1,
+        1, 1, 1, 0,
+        z + 0.1,
+        0, 1, 1, 0,
+        color, shader_dither_transition, {
+          uv_scale: dither_uvs,
+          dither_param: [alpha],
+        });
+    } else {
+      let alpha = (1 - progress) * 2;
+      spriteQueueRaw4([textureBlack(), sprite_dither.texs[0]],
+        0, 0, 0, 1,
+        1, 1, 1, 0,
+        z + 0.1,
+        0, 1, 1, 0,
+        color, shader_dither_transition, {
+          uv_scale: dither_uvs,
+          dither_param: [alpha],
+        });
+    }
+  } else {
+    let alpha = 1 - progress;
+    spriteQueueRaw4([initial, sprite_dither.texs[0]],
+      0, 0, 0, 1,
+      1, 1, 1, 0,
+      z,
+      0, 1, 1, 0,
+      color, shader_dither_transition, {
+        uv_scale: dither_uvs,
+        dither_param: [alpha],
+      });
+  }
+
+  if (force_end || progress === 1) {
+    return transition.REMOVE;
+  }
+  return transition.CONTINUE;
+}
+
+const TRANSITION_TIME = 250;
+export function queueTransitionDither(time?: number): void {
+  if (engine.getFrameIndex() > 1) {
+    transition.queue(Z.TRANSITION_FINAL, fadeDither.bind(null, time || TRANSITION_TIME, false));
+  }
+}
+
+export function queueTransitionDitherUpDown(time?: number): void {
+  if (engine.getFrameIndex() > 1) {
+    transition.queue(Z.TRANSITION_FINAL, fadeDither.bind(null, time || TRANSITION_TIME, true));
+  }
 }
 
 // if it doesn't match, does it at least fit-ish?
@@ -614,6 +705,7 @@ export function startUnlocking(pick_state_in: PickState | null): PickState {
 }
 
 export function startHeist(index: number): void {
+  queueTransitionDitherUpDown();
   dialogReset();
   player_state.mode = 'heist';
   stateHeistInit(index);
@@ -762,5 +854,7 @@ export function main(): void {
   // startHeist(0);
   // startUnlocking(null);
   titleInit();
-  // optionsMenu('title');
+  if (0) {
+    optionsMenu('title');
+  }
 }

@@ -2,8 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 Main menu
-  * intro fade - https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
-  * Continue
   * New game
     * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
 
