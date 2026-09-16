@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="2026.09.14" name="gfx" tilewidth="14" tileheight="14" tilecount="19" columns="0">
+<tileset version="1.10" tiledversion="2026.09.14" name="gfx" tilewidth="14" tileheight="14" tilecount="20" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="0">
   <image source="../src/client/atlases/gfx/chest.png" width="14" height="14"/>
@@ -57,6 +57,9 @@
  </tile>
  <tile id="18">
   <image source="../src/client/atlases/gfx/guard-left.png" width="14" height="14"/>
+ </tile>
+ <tile id="20">
+  <image source="../src/client/atlases/gfx/event-1.png" width="14" height="14"/>
  </tile>
  <wangsets>
   <wangset name="wall" type="edge" tile="-1">

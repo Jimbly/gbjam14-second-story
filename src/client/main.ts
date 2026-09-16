@@ -3,6 +3,25 @@
 const local_storage = require('glov/client/local_storage');
 local_storage.setStoragePrefix('gbj14'); // Before requiring anything else that might load from this
 
+export const GOALS = {
+  intro: 'Enjoy peaceful retirement in a new town',
+  mugged: 'Find out who robbed me',
+  informant1: 'Bribe informant',
+  search1: 'Search the Foulmouth residence',
+  find2a: 'Find Strongfist House',
+  find2b: 'Search Strongfist House',
+  buytreat: 'Deal with the dogs',
+  search2: 'Search Strongfist House',
+  find3a: 'Find Ramirrors',
+  find3b: 'Rob Goldenhare Palace',
+  find3c: 'Learn about the private security',
+  buygift: 'Deal with the shady guard',
+  search3: 'Rob Goldenhare Palace',
+  outtahere: 'Get Outta Town',
+};
+export type GoalID = keyof typeof GOALS;
+export const GOAL_LIST = Object.keys(GOALS) as GoalID[];
+
 import assert from 'assert';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
@@ -96,7 +115,6 @@ const font_style1 = fontStyleColored(null, palette_font[1]);
 const font_style2 = fontStyleColored(null, palette_font[2]);
 const font_style3 = fontStyleColored(null, palette_font[3]);
 
-let shader_dither: Shader;
 let shader_dither_transition: Shader;
 let sprite_dither: Sprite;
 const dither_uvs = vec4(0, 0, game_width / 4, game_height / 4);
@@ -106,7 +124,6 @@ function init(): void {
     fp: 'shaders/repalette.fp',
   });
 
-  shader_dither = shaderCreate('shaders/dither.fp');
   shader_dither_transition = shaderCreate('shaders/dither_transition.fp');
 
   sprite_dither = spriteCreate({
@@ -233,15 +250,10 @@ export function randInt(mx: number): number {
   return floor(random() * mx);
 }
 
-const GOALS = [
-  '???',
-  'FIND OUT WHO ROBBED ME',
-];
-
 class PlayerState {
   money = 0;
   num_picks = 2;
-  goal = 0;
+  goal: GoalID = 'intro';
   mode: 'status' | 'unlock' | 'heist' | 'town' = 'status';
   is_flipped: boolean[] = [];
   picks: number[] = [];
@@ -739,7 +751,7 @@ export function stateStatus(dt: number): void {
     font_style: font_style2,
     x, y, w,
     align: ALIGN.HWRAP | ALIGN.HRIGHT,
-    text: `GOAL: [c=3]${GOALS[player_state.goal]}[/c]`,
+    text: `GOAL: [c=3]${GOALS[player_state.goal].toUpperCase()}[/c]`,
   });
   dialogRun(
     dt,
@@ -766,7 +778,7 @@ function statePlay(dt: number): void {
 type SavedGame = {
   money: number;
   num_picks: number;
-  goal: number;
+  goal: GoalID;
   // mode: PlayerState['mode'];
 };
 
@@ -795,7 +807,7 @@ export function loadGame(): void {
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
-  startTown(player_state.goal === 0);
+  startTown(player_state.goal === 'intro');
 }
 
 export function canLoad(): boolean {
@@ -860,10 +872,10 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    // loadGame();
+    loadGame();
 
-    engine.setState(statePlay);
-    startHeist(0);
+    // engine.setState(statePlay);
+    // startHeist(0);
     // startUnlocking(12, null);
   }
 }

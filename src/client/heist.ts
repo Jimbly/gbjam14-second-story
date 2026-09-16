@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { DEBUG } from 'glov/client/engine';
@@ -34,6 +35,7 @@ import {
   getPalette,
   leaveHeist,
   PickState,
+  playerState,
   queueTransitionDither,
   queueTransitionDitherUpDown,
   randInt,
@@ -54,7 +56,11 @@ const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, si
 const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
+const TILESIZE = 14;
+
 let palette: Vec4[];
+
+let anim: AnimationSequencer | null = null;
 
 // Room size: ~8x6
 // hallway width: 2
@@ -267,6 +273,7 @@ function tilesToCells(level: Level): void {
         case 'guard-right':
         case 'floor-1':
         case 'floor-2':
+        case 'event-1':
         case 'chest-opened':
         case 'chest-aborted':
         case 'none':
@@ -308,6 +315,7 @@ const TILED_TILESET: Rec<number, string> = {
   16: 'hero-up',
   17: 'guard-right',
   18: 'guard-left',
+  20: 'event-1',
 };
 function levelFromJSON(json: DataObject): Level {
   let level = new Level(TOWNDEF);
@@ -872,7 +880,18 @@ function initMap(name: string, json: DataObject): void {
             pos: [xx, yy],
             type: 'shop',
           });
+        } else if (name === 'town') {
+          level.events.push({
+            pos: [xx, yy],
+            type: 'informant',
+          });
         }
+      } else if (tile === 'event-1') {
+        tiles[yy][xx] = 'floor-1';
+        level.events.push({
+          pos: [xx, yy],
+          type: 'storyevent1',
+        });
       }
     }
   }
@@ -923,6 +942,41 @@ function doEvent(event: MapEvent): void {
     case 'shop':
       dialog('shop');
       break;
+    case 'storyevent1': {
+      let player_state = playerState();
+      if (player_state.goal !== 'intro') {
+        break;
+      }
+      anim = animationSequencerCreate();
+      anim.add(0, 1000, (progress) => {
+        autoAtlas('gfx', 'hero-right').draw({
+          x: (heist_state.pos[1] - 0.5) * TILESIZE + (progress - 0.5) * 20 * TILESIZE,
+          y: (heist_state.pos[1] - 0.5) * TILESIZE,
+          z: Z.HERO + 1,
+          w: TILESIZE,
+          h: TILESIZE,
+          color: [2, 2, 2, 1],
+        });
+      });
+      anim.add(500, 0, (progress) => {
+        heist_state.floaters.push({
+          t: 0,
+          pos: [
+            heist_state.pos[0] - 0.5,
+            heist_state.pos[1],
+          ],
+          msg: '[c=2]#$!?',
+        });
+      });
+      anim.add(1000, 0, (progress) => {
+        dialog('mugged');
+      });
+      player_state.goal = 'mugged';
+
+    } break;
+    case 'informant':
+      dialog('informant');
+      break;
     default:
       dialogPush({
         text: `UNKNOWN EVENT "${event.type}"`,
@@ -945,6 +999,7 @@ export function stateHeistInit(index: number): void {
     heist_state.pos[0] += 4;
   }
   heist_state.timer = heist_state.time_max = def.heist_time;
+  anim = null;
 }
 function doMotion(dt: number, is_town: boolean): void {
   let { pos, caught } = heist_state;
@@ -1658,8 +1713,6 @@ export function doTimer(dt: number): void {
   }
 }
 
-const TILESIZE = 14;
-
 function doHeistViewSub(rect: UIBox): void {
   let { pos } = heist_state;
 
@@ -1833,7 +1886,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
     doGuards(unpaused_dt);
   }
 
-  if (unlocking === -1) {
+  if (unlocking === -1 && !anim) {
     doMotion(dt, is_town);
   }
 
@@ -1843,6 +1896,12 @@ export function stateHeist(dt: number, is_town: boolean):void {
     w: game_width,
     h: game_height,
   });
+
+  if (anim) {
+    if (!anim.update(dt)) {
+      anim = null;
+    }
+  }
 
   doFloaters(dt);
   // camera back to normal for HUD
@@ -1880,4 +1939,5 @@ export function initTownMap(initial: boolean): void {
     heist_state.dir = 3;
   }
   heist_state.timer = heist_state.time_max = 0;
+  anim = null;
 }

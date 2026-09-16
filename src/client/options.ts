@@ -57,6 +57,13 @@ function stateOptionsMenu(dt: number): void {
     align: ALIGN.HCENTER,
   };
 
+  font.draw({
+    ...button_param,
+    y: y - 14,
+    color: palette_font[1],
+    text: '- OPTIONS -',
+  });
+
   let selidx = 0;
   function indicator(): void {
     if (selection !== selidx) {
