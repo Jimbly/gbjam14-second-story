@@ -8,10 +8,10 @@ export const GOALS = {
   mugged: 'Find out who robbed me',
   informant1: 'Bribe informant',
   search1: 'Search the Foulmouth residence',
-  find2a: 'Find Strongfist House',
-  find2b: 'Search Strongfist House',
-  buytreat: 'Deal with the dogs',
-  search2: 'Search Strongfist House',
+  find2a: 'Find Strongfist Manor',
+  find2b: 'Search Strongfist Manor',
+  buytreat: 'Deal with the cats',
+  search2: 'Search Strongfist Manor',
   find3a: 'Find Ramirrors',
   find3b: 'Rob Goldenhare Palace',
   find3c: 'Learn about the private security',
@@ -505,10 +505,10 @@ function usePick(idx: number): void {
 }
 function drawPicks(): void {
   let { picks, is_flipped } = player_state;
-  if (actionEdge('right')) {
+  if (!dialogMoveLocked() && actionEdge('right')) {
     pick_state.selected = min(pick_state.selected + 1, picks.length - 1);
   }
-  if (actionEdge('left')) {
+  if (!dialogMoveLocked() && actionEdge('left')) {
     pick_state.selected = max(pick_state.selected - 1, 0);
   }
 
@@ -520,7 +520,7 @@ function drawPicks(): void {
   let h = PICK_H;
   x += floor(missing_picks * (w + 4) / 2);
 
-  let disabled = pick_state.progress === pick_state.lock.length;
+  let disabled = pick_state.progress === pick_state.lock.length || dialogMoveLocked();
   for (let ii = 0; ii < picks.length; ++ii) {
     let pick = picks[ii];
     let rect = {
@@ -647,10 +647,13 @@ function startTown(initial: boolean): void {
   // dialog('choose');
 }
 
-export function leaveHeist(success: boolean, loot: number): void {
+export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null): void {
   if (success && !loot) {
     // no sound, had a UI action leading up to this
   } else if (success) {
+    if (new_goal) {
+      player_state.goal = new_goal;
+    }
     playSound('pickup');
   } else {
     playSound('fail');
@@ -667,7 +670,9 @@ function stateLockPick(dt: number): void {
   });
   drawPickingHUD(dt);
   let world_dt = dt * 0.5;
-  doTimer(world_dt);
+  if (player_state.mode === 'unlock') { // else, dialog caused us to exit
+    doTimer(world_dt);
+  }
   let lock_x1 = drawLock(dt);
   drawPicks();
   let heist_view = {
@@ -737,7 +742,7 @@ export function stateStatus(dt: number): void {
     font_style: font_style2,
     x, y, w,
     align: ALIGN.HRIGHT,
-    text: `GOLD: [c=3]${player_state.money}[/c]`,
+    text: `GOLD: [c=3]${player_state.money > 900000 ? 'ONE MILLION' : player_state.money}[/c]`,
   });
   y += text_height + 2;
   markdownAuto({
@@ -875,7 +880,7 @@ export function main(): void {
     loadGame();
 
     // engine.setState(statePlay);
-    // startHeist(0);
+    // startHeist(4);
     // startUnlocking(12, null);
   }
 }

@@ -10,7 +10,7 @@ import { sound3DListener, soundPlay } from 'glov/client/sound';
 import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
-import { randCreate } from 'glov/common/rand_alea';
+import { randCreate, shuffleArray } from 'glov/common/rand_alea';
 import { DataObject, Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
@@ -29,10 +29,12 @@ import {
 } from 'glov/common/vmath';
 import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
+import { HERO } from './dialog_data';
 import { dialog, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import {
   getPalette,
+  GoalID,
   leaveHeist,
   PickState,
   playerState,
@@ -72,7 +74,7 @@ const HEISTS = [{
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
-  room_max_area: 10*8, // subdivide if smaller than this
+  room_max_area: 10*8, // subdivide if larger than this
   heist_time: 120000,
   alert_time: 30000,
   chests: 8, // $720
@@ -80,6 +82,8 @@ const HEISTS = [{
   chest_value_simple: 65,
   chest_value_locked: 115,
   tumblers: [4, 1], // [base + range*2]
+  fixed_seed: 0,
+  intro_dialog: '',
 }, {
   guards_initial: 0,
   guards_total: 4,
@@ -88,7 +92,7 @@ const HEISTS = [{
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
-  room_max_area: 10*8, // subdivide if smaller than this
+  room_max_area: 10*8, // subdivide if larger than this
   heist_time: 120000,
   alert_time: 30000,
   chests: 10, // $1500
@@ -96,6 +100,8 @@ const HEISTS = [{
   chest_value_simple: 100,
   chest_value_locked: 200,
   tumblers: [6, 1], // [base + range*2]
+  fixed_seed: 0,
+  intro_dialog: '',
 }, {
   guards_initial: 2,
   guards_total: 12,
@@ -104,7 +110,7 @@ const HEISTS = [{
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
-  room_max_area: 10*8, // subdivide if smaller than this
+  room_max_area: 10*8, // subdivide if larger than this
   heist_time: 120000,
   alert_time: 30000,
   chests: 12, // $3000
@@ -112,6 +118,71 @@ const HEISTS = [{
   chest_value_simple: 150,
   chest_value_locked: 300,
   tumblers: [6, 2], // [base + range*2]
+  fixed_seed: 0,
+  intro_dialog: '',
+}, {
+  // special house #1
+  guards_initial: 2,
+  guards_total: 6,
+  w: 30,
+  h: 20,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 0],
+  room_max_area: 8*6,
+  heist_time: 61000,
+  alert_time: 60000,
+  chests: 1,
+  chests_locked: 1,
+  chest_value_simple: 0,
+  chest_value_locked: 0,
+  tumblers: [8, 0], // [base + range*2]
+  fixed_seed: 8,
+  intro_dialog: 'So, this is the\nFoulmouth residence...',
+  reward_dialog: 'special1',
+  reward_goal: 'find2a',
+}, {
+  // special house #2
+  guards_initial: 3,
+  guards_total: 5,
+  w: 40,
+  h: 30,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 0],
+  room_max_area: 8*6,
+  heist_time: 61000,
+  alert_time: 60000,
+  chests: 1,
+  chests_locked: 1,
+  chest_value_simple: 0,
+  chest_value_locked: 0,
+  tumblers: [10, 0], // [base + range*2]
+  fixed_seed: 12,
+  intro_dialog: 'Strongfist Manor...\nWhat secrets do you hide?',
+  reward_dialog: 'special2',
+  reward_goal: 'find3a',
+}, {
+  // special house #3
+  guards_initial: 8,
+  guards_total: 12,
+  w: 60,
+  h: 60,
+  room_min_w: 5,
+  room_min_h: 5,
+  room_min_area: [12, 0],
+  room_max_area: 8*6,
+  heist_time: 61000,
+  alert_time: 60000,
+  chests: 1,
+  chests_locked: 1,
+  chest_value_simple: 0,
+  chest_value_locked: 1000000,
+  tumblers: [10, 0], // [base + range*2]
+  fixed_seed: 19,
+  intro_dialog: 'So this is where Ramirrors\nkeeps his treasure...',
+  reward_dialog: 'special3',
+  reward_goal: 'outtahere',
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -131,6 +202,8 @@ const TOWNDEF: HeistDef = {
   chest_value_simple: 0,
   chest_value_locked: 0,
   tumblers: [6, 0],
+  fixed_seed: 0,
+  intro_dialog: '',
 };
 
 type MapEvent = {
@@ -153,6 +226,7 @@ type Guard = {
   pause: number;
   bit?: boolean;
   chasing?: boolean;
+  goal_was_chasing?: boolean;
   dir: number;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
@@ -176,6 +250,10 @@ class Level {
     for (let ii = 0; ii < this.chests.length; ++ii) {
       let chest = this.chests[ii];
       chars[chest.pos[1]][chest.pos[0]] = '$';
+    }
+    for (let ii = 0; ii < this.guards.length; ++ii) {
+      let guard = this.guards[ii];
+      chars[floor(guard.pos[1])][floor(guard.pos[0])] = '!';
     }
 
     return chars.map((row) => row.join('')).join('\n');
@@ -349,7 +427,7 @@ function levelFromJSON(json: DataObject): Level {
 
 let level: Level;
 function genLevel(def: HeistDef): void {
-  let rand = randCreate(floor(random() * 1000000));
+  let rand = randCreate(def.fixed_seed || floor(random() * 1000000));
   level = new Level(def);
   let { w, h, cells } = level;
   for (let yy = 0; yy < h; ++yy) {
@@ -416,8 +494,12 @@ function genLevel(def: HeistDef): void {
   let vpath = floor(w * 0.4) + rand.range(floor(w * 0.3));
   carve(vpath, 1, 2, h - 2);
   let exit: JSVec2 = [0,0];
+  let exit_pos = rand.range(3);
+  if (def.fixed_seed === 19) {
+    exit_pos = 1;
+  }
   // eslint-disable-next-line default-case
-  switch (rand.range(3)) {
+  switch (exit_pos) {
     case 0:
       exit = [w - 1, hpath];
       break;
@@ -649,12 +731,17 @@ function genLevel(def: HeistDef): void {
       }
     }
   }
-  for (let ii = 0; ii < rooms.length && desired_chests; ++ii) {
+  let closets = [];
+  for (let ii = 0; ii < rooms.length; ++ii) {
     let room = rooms[ii];
     let numdoors = countDoors(room);
     if (numdoors === 1) {
-      addChest(ii);
+      closets.push(ii);
     }
+  }
+  shuffleArray(rand, closets);
+  for (let ii = 0; ii < closets.length && desired_chests; ++ii) {
+    addChest(closets[ii]);
   }
   // then just random rooms
   let retries = 0;
@@ -838,6 +925,7 @@ class HeistState {
   touched_first_chest = false;
   started = false;
   did_thats_all = false;
+  found_special_reward = false;
 }
 
 let heist_state: HeistState;
@@ -902,22 +990,23 @@ let end_of_frame_load: null | keyof typeof LEVELS;
 function doEvent(event: MapEvent): void {
   switch (event.type) {
     case 'exit':
-      if (!heist_state.loot) {
+      if (!heist_state.loot && !heist_state.found_special_reward) {
         dialogPush({
-          text: 'ARE YOU SURE YOU WANT TO LEAVE?  YOU HAVE NOT FOUND ANYTHING YET.',
+          text: 'Are you sure you want to leave?  You have not found anything yet.',
           buttons: [{
-            label: 'NO, CONTINUE LOOTING',
+            label: 'No, continue looting',
           }, {
-            label: 'YES, LEAVE',
+            label: 'Yes, leave',
             cb: function () {
               queueTransitionDitherUpDown(500);
-              leaveHeist(true, heist_state.loot);
+              leaveHeist(true, heist_state.loot, null);
             }
           }],
         });
       } else {
         queueTransitionDitherUpDown(500);
-        leaveHeist(true, heist_state.loot);
+        leaveHeist(true, heist_state.loot,
+          heist_state.found_special_reward ? level.def.reward_goal as GoalID : null);
       }
       break;
     case 'shopenter':
@@ -991,7 +1080,7 @@ export function stateHeistInit(index: number): void {
   genLevel(def);
   console.log(level.debug());
   heist_state = new HeistState();
-  heist_state.pos = [
+  let pos = heist_state.pos = [
     level.entrance[0] + 1.5,
     level.entrance[1] + 0.5,
   ];
@@ -1000,6 +1089,13 @@ export function stateHeistInit(index: number): void {
   }
   heist_state.timer = heist_state.time_max = def.heist_time;
   anim = null;
+  if (def.intro_dialog) {
+    heist_state.floaters.push({
+      t: -1000,
+      pos: [pos[0] - 0.5, pos[1] - 2],
+      msg: `[c=2]${def.intro_dialog}`,
+    });
+  }
 }
 function doMotion(dt: number, is_town: boolean): void {
   let { pos, caught } = heist_state;
@@ -1271,7 +1367,7 @@ function doMotion(dt: number, is_town: boolean): void {
   }
   heist_state.was_on_chest = on_chest;
 
-  if (!unopened_chests && !heist_state.did_thats_all && !is_town) {
+  if (!unopened_chests && !heist_state.did_thats_all && !is_town && dt) {
     heist_state.did_thats_all = true;
     playSound('thatsall');
     heist_state.floaters.push({
@@ -1362,6 +1458,7 @@ function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
     opt.target[1] + 0.5,
   ];
   guard.goal = opt.goal;
+  guard.goal_was_chasing = false;
   updateGuardDir(guard);
 }
 function chooseRandomDoor(guard: Guard, x0: number, y0: number): void {
@@ -1393,6 +1490,7 @@ function chooseRandomDoor(guard: Guard, x0: number, y0: number): void {
   }
   let idx = randInt(options.length);
   guard.goal = options[idx];
+  guard.goal_was_chasing = false;
 }
 function pickGoal(guard: Guard): void {
   let x = floor(guard.pos[0]);
@@ -1469,6 +1567,7 @@ function doGuards(dt: number): void {
         if (canSee(guard.pos, player_pos)) {
           guard.chasing = true;
           guard.goal = [floor(player_pos[0]), floor(player_pos[1])];
+          guard.goal_was_chasing = true;
           heist_state.started = true;
         }
       }
@@ -1496,13 +1595,13 @@ function doGuards(dt: number): void {
       dy = sign(dy);
       let xcell = cells[iposy][iposx + dx];
       if (xcell !== 'floor' && xcell !== 'door' ||
-        !guard.chasing && xcell === 'door' && !v2same(guard.goal, [iposx+dx, iposy])
+        !guard.goal_was_chasing && xcell === 'door' && !v2same(guard.goal, [iposx+dx, iposy])
       ) {
         dx = 0;
       }
       let ycell = cells[iposy + dy]?.[iposx];
       if (ycell !== 'floor' && ycell !== 'door' ||
-        !guard.chasing && ycell === 'door' && !v2same(guard.goal, [iposx, iposy+dy])
+        !guard.goal_was_chasing && ycell === 'door' && !v2same(guard.goal, [iposx, iposy+dy])
       ) {
         dy = 0;
       }
@@ -1552,6 +1651,7 @@ function doGuards(dt: number): void {
         guard.pause = guard.chasing ? 33 : 200;
         if (abs(guard.goal[0] + 0.5 - guard.pos[0]) + abs(guard.goal[1] + 0.5 - guard.pos[1]) <= 0.1) {
           guard.goal = null;
+          guard.goal_was_chasing = false;
         }
       }
     }
@@ -1608,6 +1708,10 @@ export function finishUnlocking(success: boolean, bonus: number, partial_progres
       pos: chest.pos,
       msg: `[c=2]+[c=3]${chest.value + bonus}[/c]G`,
     });
+    if (level.def.reward_dialog) {
+      dialog(level.def.reward_dialog);
+      heist_state.found_special_reward = true;
+    }
   } else {
     chest.progress = partial_progress;
     heist_state.floaters.push({
@@ -1690,7 +1794,7 @@ export function doTimer(dt: number): void {
   }
 
 
-  if (dialogMoveLocked()) {
+  if (dialogMoveLocked() || heist_state.caught) {
     return;
   }
   if (heist_state.timer <= level.def.alert_time && !heist_state.did_alert) {
@@ -1700,13 +1804,14 @@ export function doTimer(dt: number): void {
   if (heist_state.timer <= 0) {
     heist_state.timer = 0;
     dialogPush({
-      text: 'OH NO! OUTTA TIME, THIS PLACE IS SURROUNDED.\n\n' +
-        '[c=0]I GUESS I GOTTA DROP EVERYTHING AND GET OUT OF HERE...[/c]',
+      name: HERO,
+      text: 'Oh no! Outta time, this place is surrounded.\n\n' +
+        '[c=0]I guess I gotta drop everything and get out of here...[/c]',
       buttons: [{
-        label: 'AT LEAST I WASN\'T CAUGHT...',
+        label: 'At least I wasn\'t caught...',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0);
+          leaveHeist(false, 0, null);
         }
       }],
     });
@@ -1815,38 +1920,42 @@ function doFloaters(dt: number): void {
     let xx = (floater.pos[0] + 0.5) * TILESIZE;
     let text_height = uiTextHeight();
     let yy = floater.pos[1] * TILESIZE - round(easeOut(t, 2) * TILESIZE) - text_height;
-    let text_w = uiGetFont().getStringWidth(null, text_height, floater.msg.replace(/\[c=\d\]/g, '')) + 4;
+    let text_w = 0;
+    floater.msg.split('\n').forEach((line) => {
+      let ww = uiGetFont().getStringWidth(null, text_height, line.replace(/\[c=\d\]/g, ''));
+      text_w = max(text_w, ww);
+    });
     xx -= floor(text_w/2);
-    markdownAuto({
+    xx = clamp(xx, camera2d.x0(), camera2d.x1() - text_w - 4);
+    let h = markdownAuto({
       x: xx,
       y: yy,
-      w: text_w,
+      w: text_w + 4,
       z,
-      align: ALIGN.HCENTER,
+      align: ALIGN.HCENTER | ALIGN.HWRAP,
       text: floater.msg,
-    });
+    }).h;
     drawBox({
       x: xx,
       y: yy - 3,
-      w: text_w,
-      h: text_height + 5,
+      w: text_w + 4,
+      h: h + 5,
       z: z - 0.1,
     }, autoAtlas('gfx', 'box'));
     z--;
   }
 
-  if (!floaters.length && caught) {
-    heist_state.caught = false;
+  if (!floaters.length && caught && !dialogMoveLocked()) {
     heist_state.loot = 0;
     dialogPush({
-      text: 'THE GUARDS TAKE EVERYTHING YOU\'VE FOUND AND LOCK YOU UP.\n\n' +
-        'LUCKILY YOU\'RE BETTER AT HIDING YOUR LOCKPICKS THAN THEY ARE AT SEARCHING,' +
-        ' SO IN THE NIGHT YOU ESCAPE AND GET BACK TO YOUR TASK...',
+      text: 'The guards take everything you\'ve found and lock you up.\n\n' +
+        'Luckily you\'re better at hiding your lockpicks than they are at searching,' +
+        ' so in the night you escape and get back to your task...',
       buttons: [{
-        label: 'PHEW, THAT WAS CLOSE...',
+        label: 'Phew, that was close...',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0);
+          leaveHeist(false, 0, null);
         }
       }],
     });
@@ -1908,7 +2017,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
   camera2d.setAspectFixed(game_width, game_height);
   drawHeistHUD(dt, is_town);
 
-  if (actionEdge('cancel')) {
+  if (!dialogMoveLocked() && actionEdge('cancel')) {
     playSound('button_click');
     queueTransitionDitherUpDown();
     optionsMenu('game');

@@ -1,3 +1,5 @@
+export const HERO = 'JARRETT';
+
 /* eslint prefer-template:off, @stylistic/max-len:off, @typescript-eslint/no-unused-vars:off */
 import assert from 'assert';
 import { cmd_parse } from 'glov/client/cmds';
@@ -19,7 +21,6 @@ import {
 } from './dialog_system';
 import { GOAL_LIST, playerState, startHeist } from './main';
 
-const HERO = 'JARRETT';
 const INFORMANT = 'ALLEY DWELLER';
 
 export function signWithName(name: string, message: string, transient_long?: boolean): void {
@@ -50,25 +51,109 @@ dialogRegister({
 
 dialogRegister({
   choose: function (param: string) {
+    let goal = playerState().goal;
     dialogPush({
-      text: 'WHERE SHOULD I DO SOME "SECOND STORY WORK"?',
+      text: 'Where should I do some "second story work"?',
       buttons: [{
         label: 'SLUMS',
         cb: function () {
-          startHeist(0);
+          if (goal === 'search1') {
+            dialogPush({
+              text: 'Am I ready to start my revenge?',
+              buttons: [{
+                label: 'Search the Foulmouth resdience',
+                cb: function () {
+                  startHeist(3);
+                },
+              }, {
+                label: 'Any place will do...',
+                cb: function () {
+                  startHeist(0);
+                },
+              }],
+            });
+          } else {
+            startHeist(0);
+          }
         }
       }, {
         label: 'MERCHANT QUARTER',
         cb: function () {
-          startHeist(1);
+          if (goal === 'find2b' || goal === 'buytreat' || goal === 'search2') {
+            dialogPush({
+              text: 'Am I ready to continue my revenge?',
+              buttons: [{
+                label: 'Search Strongfist Manor',
+                cb: function () {
+                  if (goal === 'search2') {
+                    startHeist(4);
+                  } else {
+                    if (goal === 'find2b') {
+                      playerState().goal = 'buytreat';
+                    }
+                    dialogPush({
+                      name: HERO,
+                      text: 'Hmm, the yard is positively crawling with guard cats. I don\'t think I can bring myself to walk past them without bringing them a treat.',
+                      buttons: [{
+                        label: 'MEOW.',
+                        cb: function () {
+                          // returns to town
+                        }
+                      }],
+                    });
+                  }
+                },
+              }, {
+                label: 'Any place will do...',
+                cb: function () {
+                  startHeist(1);
+                },
+              }],
+            });
+          } else {
+            startHeist(1);
+          }
         }
       }, {
-        label: 'OLD MONEY',
+        label: 'OLD MONEY NEIGHBORHOOD',
         cb: function () {
-          startHeist(2);
+          if (goal === 'find3b' || goal === 'find3c' || goal === 'buygift' || goal === 'search3') {
+            dialogPush({
+              text: 'Am I ready to finish my revenge?',
+              buttons: [{
+                label: 'Rob Goldenhare Palace',
+                cb: function () {
+                  if (goal === 'search3') {
+                    startHeist(5);
+                  } else {
+                    if (goal === 'find3b') {
+                      playerState().goal = 'find3c';
+                    }
+                    dialogPush({
+                      name: HERO,
+                      text: 'Oh boy, that\'s too many guards, even for me. I\'ll have to find a safe way past them.',
+                      buttons: [{
+                        label: '',
+                        cb: function () {
+                          // returns to town
+                        }
+                      }],
+                    });
+                  }
+                },
+              }, {
+                label: 'Any place will do...',
+                cb: function () {
+                  startHeist(2);
+                },
+              }],
+            });
+          } else {
+            startHeist(2);
+          }
         }
       }, {
-        label: 'NOT YET...',
+        label: 'Not yet...',
         cb: function () {
           // nothing
         }
@@ -77,7 +162,7 @@ dialogRegister({
   },
   cannotafford: function () {
     dialogPush({
-      text: 'SORRY, YOU CANNOT AFFORD THAT.',
+      text: 'Sorry, you cannot afford that.',
       buttons: [{
         label: 'OK',
         cb: function () {
@@ -88,7 +173,7 @@ dialogRegister({
   },
   maxpicks: function () {
     dialogPush({
-      text: 'YOU ALREADY HAVE ALL THE PICKS I MAKE, SORRY.',
+      text: 'You already have all the picks I make, sorry.',
       buttons: [{
         label: 'OK',
         cb: function () {
@@ -115,7 +200,7 @@ dialogRegister({
     let extra_label: string | null = null;
     let extra_cost = 0;
     if (player_state.goal === 'buytreat') {
-      extra_label = 'DOG TREAT';
+      extra_label = 'CAVIAR';
       extra_cost = 2000;
     }
     if (player_state.goal === 'buygift') {
@@ -139,7 +224,7 @@ dialogRegister({
       label: 'NOTHING RIGHT NOW',
     });
     dialogPush({
-      text: `GOLD: ${player_state.money}\nLOCKPICKS: ${player_state.num_picks}/10\n\nWHAT WOULD YOU LIKE TO BUY?`,
+      text: `GOLD: ${player_state.money}\nLOCKPICKS: ${player_state.num_picks}/10\n\nWhat would you like to buy?`,
       buttons,
     });
   },
@@ -183,16 +268,16 @@ dialogRegister({
       dialogLine(INFORMANT, 'Foulmouth lives in the Slums.');
     } else if (player_state.goal === 'find2a') {
       player_state.goal = 'find2b';
-      dialogLine(INFORMANT, 'Informant: Strongfist? He lives in the merchant quarter.',
+      dialogLine(INFORMANT, 'Strongfist? He lives in the merchant quarter.',
         dialogLine.bind(null, HERO, 'Thanks, here\'s 400G',
           dialogLine.bind(null, INFORMANT, 'Ah, no worries, my wallet\'s still full, this one\'s on the house!'
           )
         )
       );
     } else if (player_state.goal === 'find2b' || player_state.goal === 'search2') {
-      dialogLine(INFORMANT, 'Informant: Strongfist? He lives in the merchant quarter.');
+      dialogLine(INFORMANT, 'Strongfist? He lives in the merchant quarter.');
     } else if (player_state.goal === 'buytreat') {
-      dialogLine(INFORMANT, 'Dogs? Check the shop, they might have something to help.');
+      dialogLine(INFORMANT, 'Vicious guard animals? Check the shop, they might have something to help.');
     } else if (player_state.goal === 'find3a') {
       player_state.goal = 'find3b';
       dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace in the Old Money neighborhood.',
@@ -204,7 +289,7 @@ dialogRegister({
       dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace in the Old Money neighborhood.');
     } else if (player_state.goal === 'find3c') {
       player_state.goal = 'buygift';
-      dialogLine(INFORMANT, 'Ramirrors Palace private security? They\'re a tough bunch, but I hear one of them lost his month\'s wages and is in desperate need of a gift to sooth his wife...',
+      dialogLine(INFORMANT, 'Ramirrors Palace private security? They\'re a tough bunch, but I hear one of them lost a month\'s wages and is in desperate need of a gift to sooth his wife...',
         dialogLine.bind(null, HERO, 'I bet I can find him the perftect gift! Thanks, here\'s 400G.',
           dialogLine.bind(null, INFORMANT, 'Ah, no worries, wallet\'s still full! I haven\'t left this spot to go spend anything in days.')
         )
@@ -216,5 +301,19 @@ dialogRegister({
     } else if (player_state.goal === 'outtahere') {
       dialogLine(INFORMANT, 'Nice working with you, best of luck on your future endeavors!');
     }
+  },
+  special1: function () {
+    dialogLine(HERO, 'A receipt for payment to deliver an order to [c=0]Bignoes Strongfist[/c] on the night of my mugging, this must be it!');
+  },
+  special2: function () {
+    dialogLine(HERO, 'An order from his boss asking him to set up the hit!',
+      dialogLine.bind(null, HERO, 'Hmm, Strongfist did the deed, but it appears he was paid by my old friend Ramirrors...\n\n' +
+        'Now that I know who\'s behind this, I\'ll make sure to leave him penniless.')
+    );
+  },
+  special3: function () {
+    dialogLine(HERO, 'ONE MIIIIIIILION DOLLARS!',
+      dialogLine.bind(null, HERO, 'That joke never gets old.')
+    );
   },
 });
