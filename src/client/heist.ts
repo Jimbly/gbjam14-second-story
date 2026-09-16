@@ -9,7 +9,7 @@ import { sound3DListener, soundPlay } from 'glov/client/sound';
 import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
 import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate } from 'glov/common/rand_alea';
-import { Rec } from 'glov/common/types';
+import { DataObject, Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
   JSVec2,
@@ -27,7 +27,7 @@ import {
 } from 'glov/common/vmath';
 import { actionDown } from './binds';
 import { blend } from './blend';
-import { dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
+import { dialog, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import { getPalette, leaveHeist, PickState, randInt, startUnlocking } from './main';
 import { playSound } from './sound_data';
@@ -75,6 +75,27 @@ const HEISTS = [{
 }];
 type HeistDef = typeof HEISTS[number];
 
+const TOWNDEF: HeistDef = {
+  guards_initial: 0,
+  guards_total: 0,
+  w: 1,
+  h: 1,
+  chests: 0,
+  chests_locked: 0,
+  room_min_w: 0,
+  room_min_h: 0,
+  room_min_area: [0, 0],
+  room_max_area: 0,
+  heist_time: 0,
+  alert_time: 0,
+  chest_value_simple: 0,
+  chest_value_locked: 0,
+};
+
+type MapEvent = {
+  pos: JSVec2;
+  type: string;
+};
 type Chest = {
   pos: JSVec2;
   type: 'simple' | 'locked';
@@ -103,6 +124,7 @@ class Level {
     this.h = def.h;
   }
   cells: Cell[][] = [];
+  tiles: string[][] = [];
   debug(): string {
     let chars = this.cells.map((row) => {
       return row.map((cell) => {
@@ -117,10 +139,170 @@ class Level {
     return chars.map((row) => row.join('')).join('\n');
   }
   entrance: JSVec2 = [0,0];
-  exit: JSVec2 = [0, 0];
+  events: MapEvent[] = [];
   chests: Chest[] = [];
   guards: Guard[] = [];
 }
+
+Z.BACKGROUND = 1;
+Z.WALLS = 5;
+Z.CHESTS = 5;
+Z.DOORS = 9;
+Z.LIGHT = 20;
+Z.HERO = 30;
+Z.GUARDS = 31;
+Z.CEILING = 40;
+Z.FLOATERS = 150;
+
+const TILE_Z: Rec<string, number> = {
+  'jail': Z.WALLS,
+  'shop': Z.WALLS,
+  'npc': Z.WALLS,
+  'wall-h': Z.WALLS,
+  'wall-v': Z.WALLS,
+  'wall-corner': Z.WALLS,
+  'door-v': Z.DOORS,
+  'door-h': Z.DOORS,
+  'floor-1': Z.BACKGROUND,
+  'floor-2': Z.CEILING,
+  'chest-opened': Z.CHESTS,
+  'chest-aborted': Z.CHESTS,
+  'guard-right': Z.HERO,
+  'guard-left': Z.HERO,
+};
+
+function cellsToTiles(level: Level): void {
+  let { cells, w, h } = level;
+  let tiles: string[][] = [];
+  for (let yy = 0; yy < h; ++yy) {
+    let row: string[] = [];
+    for (let xx = 0; xx < w; ++xx) {
+      let cellabove = yy && cells[yy - 1][xx] || 'floor';
+      let cellleft = cells[yy][xx - 1] || 'floor';
+      let cell = cells[yy][xx];
+      let cellright = cells[yy][xx + 1] || 'floor';
+      let cellbelow = yy < h - 1 && cells[yy + 1][xx] || 'floor';
+      let spr;
+      if (cell === 'wall') {
+        if (cellabove === 'floor' && cellbelow === 'floor') {
+          spr = 'wall-h';
+        } else if (cellleft === 'floor' && cellright === 'floor') {
+          spr = 'wall-v';
+        } else {
+          spr = 'wall-corner';
+        }
+      } else if (cell === 'door') {
+        if (cellleft === 'floor' && cellright === 'floor') {
+          spr = 'door-v';
+        } else {
+          spr = 'door-h';
+        }
+      } else {
+        spr = 'floor-1';
+      }
+      row.push(spr);
+    }
+    tiles.push(row);
+  }
+  level.tiles = tiles;
+}
+
+function tilesToCells(level: Level): void {
+  let { tiles, w, h } = level;
+  let cells: Cell[][] = [];
+  for (let yy = 0; yy < h; ++yy) {
+    let row: Cell[] = [];
+    for (let xx = 0; xx < w; ++xx) {
+      let tile = tiles[yy][xx];
+      switch (tile) {
+        case 'wall-h':
+        case 'wall-v':
+        case 'wall-corner':
+        case 'jail':
+        case 'shop':
+          row.push('wall');
+          break;
+        case 'door-v':
+        case 'door-h':
+          row.push('door');
+          break;
+        case 'npc':
+        case 'guard-left':
+        case 'guard-right':
+        case 'floor-1':
+        case 'floor-2':
+        case 'chest-opened':
+        case 'chest-aborted':
+        case 'none':
+          row.push('floor');
+          break;
+        default:
+          assert(false, tile);
+      }
+    }
+    cells.push(row);
+  }
+  level.cells = cells;
+}
+
+type TiledLayer = {
+  data: number[];
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+};
+const TILED_TILESET: Rec<number, string> = {
+  0: 'chest',
+  1: 'chest-aborted',
+  2: 'chest-opened',
+  3: 'chest-special',
+  4: 'door-h',
+  5: 'door-open-h',
+  6: 'door-open-v',
+  7: 'door-v',
+  8: 'floor-1',
+  9: 'floor-2',
+  10: 'wall-corner',
+  11: 'wall-h',
+  12: 'wall-v',
+  13: 'npc',
+  14: 'jail',
+  15: 'shop',
+  16: 'hero-up',
+  17: 'guard-right',
+  18: 'guard-left',
+};
+function levelFromJSON(json: DataObject): Level {
+  let level = new Level(TOWNDEF);
+  level.w = json.width as number;
+  level.h = json.height as number;
+  let layers = json.layers as TiledLayer[];
+  assert(layers.length === 1);
+  let layer = layers[0];
+  assert(!layer.x);
+  assert(!layer.y);
+  assert(layer.width === level.w);
+  assert(layer.height === level.h);
+  level.tiles = [];
+  for (let yy = 0, idx=0; yy < level.h; ++yy) {
+    let row: string[] = [];
+    level.tiles.push(row);
+    for (let xx = 0; xx < level.w; ++xx, ++idx) {
+      let tileidx = layer.data[idx];
+      if (!tileidx) {
+        row.push('none');
+      } else {
+        let tile = TILED_TILESET[tileidx - 1];
+        assert(tile);
+        row.push(tile);
+      }
+    }
+  }
+  tilesToCells(level);
+  return level;
+}
+
 let level: Level;
 function genLevel(def: HeistDef): void {
   let rand = randCreate(floor(random() * 1000000));
@@ -189,20 +371,29 @@ function genLevel(def: HeistDef): void {
   carve(1, hpath, w - 2, 2);
   let vpath = floor(w * 0.4) + rand.range(floor(w * 0.3));
   carve(vpath, 1, 2, h - 2);
+  let exit: JSVec2 = [0,0];
   // eslint-disable-next-line default-case
   switch (rand.range(3)) {
     case 0:
-      level.exit = [w - 1, hpath];
+      exit = [w - 1, hpath];
       break;
     case 1:
-      level.exit = [vpath, 0];
+      exit = [vpath, 0];
       break;
     case 2:
-      level.exit = [vpath, h - 1];
+      exit = [vpath, h - 1];
       break;
   }
   door(level.entrance[0], level.entrance[1]);
-  door(level.exit[0], level.exit[1]);
+  door(exit[0], exit[1]);
+  level.events.push({
+    pos: level.entrance,
+    type: 'exit',
+  });
+  level.events.push({
+    pos: exit,
+    type: 'exit',
+  });
   allow_edge = false;
 
   function roundRandom(v: number): number {
@@ -481,6 +672,8 @@ function genLevel(def: HeistDef): void {
       pick_state: null,
     });
   }
+
+  cellsToTiles(level);
 }
 
 
@@ -588,7 +781,7 @@ class HeistState {
   loot = 0;
   floaters: Floater[] = [];
   unlocking = -1;
-  was_on_exit = false;
+  was_on_event = false;
   was_on_chest = -1;
   time_max = 0;
   timer = 0;
@@ -600,6 +793,91 @@ class HeistState {
 }
 
 let heist_state: HeistState;
+
+let cur_map: string;
+function initMap(name: string, json: DataObject): void {
+  cur_map = name;
+  level = levelFromJSON(json);
+  let { tiles } = level;
+  for (let yy = 0; yy < level.h; ++yy) {
+    for (let xx = 0; xx < level.w; ++xx) {
+      let tile = tiles[yy][xx];
+      if (tile === 'shop') {
+        level.events.push({
+          pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
+          type: 'shopenter',
+        });
+      } else if (tile === 'jail') {
+        level.events.push({
+          pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
+          type: 'jailenter',
+        });
+      } else if (tile === 'door-v') {
+        if (xx === level.w - 1 && name === 'town') {
+          level.events.push({
+            pos: [xx, yy],
+            type: 'startheist',
+          });
+        } else if (name === 'jail') {
+          if (xx > 4) {
+            level.events.push({
+              pos: [xx+1, yy],
+              type: 'jailenter',
+            });
+          }
+        }
+      }
+    }
+  }
+}
+
+function doEvent(event: MapEvent): void {
+  switch (event.type) {
+    case 'exit':
+      if (!heist_state.loot) {
+        dialogPush({
+          text: 'ARE YOU SURE YOU WANT TO LEAVE?  YOU HAVE NOT FOUND ANYTHING YET.',
+          buttons: [{
+            label: 'NO, CONTINUE LOOTING',
+          }, {
+            label: 'YES, LEAVE',
+            cb: function () {
+              leaveHeist(true, heist_state.loot);
+            }
+          }],
+        });
+      } else {
+        leaveHeist(true, heist_state.loot);
+      }
+      break;
+    case 'shopenter':
+      if (cur_map === 'town') {
+        // eslint-disable-next-line n/global-require
+        initMap('shop', require('./shop.json'));
+      } else {
+        // eslint-disable-next-line n/global-require
+        initMap('town', require('./town.json'));
+      }
+      break;
+    case 'jailenter':
+      if (cur_map === 'town') {
+        // eslint-disable-next-line n/global-require
+        initMap('jail', require('./jail.json'));
+      } else {
+        // eslint-disable-next-line n/global-require
+        initMap('town', require('./town.json'));
+      }
+      break;
+    case 'startheist':
+      dialog('choose');
+      break;
+    default:
+      dialogPush({
+        text: `UNKNOWN EVENT "${event.type}"`,
+        buttons: [{ label: 'OK' }],
+      });
+  }
+}
 
 export function stateHeistInit(index: number): void {
   palette = getPalette();
@@ -616,7 +894,7 @@ export function stateHeistInit(index: number): void {
   }
   heist_state.timer = heist_state.time_max = def.heist_time;
 }
-function doMotion(dt: number): void {
+function doMotion(dt: number, is_town: boolean): void {
   let { pos, caught } = heist_state;
   if (dialogMoveLocked() || caught) {
     return;
@@ -883,7 +1161,7 @@ function doMotion(dt: number): void {
   }
   heist_state.was_on_chest = on_chest;
 
-  if (!unopened_chests && !heist_state.did_thats_all) {
+  if (!unopened_chests && !heist_state.did_thats_all && !is_town) {
     heist_state.did_thats_all = true;
     playSound('thatsall');
     heist_state.floaters.push({
@@ -893,26 +1171,19 @@ function doMotion(dt: number): void {
     });
   }
 
-  let on_exit = v2distSq(map_pos, level.entrance) < 0.5 * 0.5 ||
-    v2distSq(map_pos, level.exit) < 0.5 * 0.5;
-  if (on_exit && !heist_state.was_on_exit) {
-    if (!heist_state.loot) {
-      dialogPush({
-        text: 'ARE YOU SURE YOU WANT TO LEAVE?  YOU HAVE NOT FOUND ANYTHING YET.',
-        buttons: [{
-          label: 'NO, CONTINUE LOOTING',
-        }, {
-          label: 'YES, LEAVE',
-          cb: function () {
-            leaveHeist(true, heist_state.loot);
-          }
-        }],
-      });
-    } else {
-      leaveHeist(true, heist_state.loot);
+  let { events } = level;
+  let on_event = false;
+  for (let ii = 0; ii < events.length; ++ii) {
+    let event = events[ii];
+    let on_it = v2distSq(map_pos, event.pos) < 0.5 * 0.5;
+    if (on_it) {
+      on_event = true;
+    }
+    if (on_it && !heist_state.was_on_event) {
+      doEvent(event);
     }
   }
-  heist_state.was_on_exit = on_exit;
+  heist_state.was_on_event = on_event;
 
   if (!heist_state.caught) {
     let { guards } = level;
@@ -1187,23 +1458,26 @@ function doGuards(dt: number): void {
   }
 }
 
-function drawHeistHUD(dt: number): void {
+function drawHeistHUD(dt: number, is_town: boolean): void {
   let x = 0;
   let y = 0;
   let h = 11;
   let w = 66;
   let z = Z.UI;
-  drawBox({
-    x, y, h, w,
-    z: z - 1,
-  }, autoAtlas('gfx', 'box'));
-
-  let { loot } = heist_state;
-  let eff_bonus = blend('loot', loot);
-  markdownAuto({
-    x: x + 2, y: y + 2, z: z + 1, w, h,
-    text: `[c=2]LOOT: [c=3]$${round(eff_bonus)}[/c][/c]`,
-  });
+  if (is_town) {
+    // show money?
+  } else {
+    drawBox({
+      x, y, h, w,
+      z: z - 1,
+    }, autoAtlas('gfx', 'box'));
+    let { loot } = heist_state;
+    let eff_bonus = blend('loot', loot);
+    markdownAuto({
+      x: x + 2, y: y + 2, z: z + 1, w, h,
+      text: `[c=2]LOOT: [c=3]$${round(eff_bonus)}[/c][/c]`,
+    });
+  }
 
   dialogRun(
     dt,
@@ -1353,36 +1627,15 @@ function doHeistViewSub(rect: UIBox): void {
   let x1 = floor(camera2d.x1() / TILESIZE);
   let y0 = floor(camera2d.y0() / TILESIZE);
   let y1 = floor(camera2d.y1() / TILESIZE);
-  let { cells, chests, guards, w, h } = level;
+  let { tiles, chests, guards, w, h } = level;
   for (let yy = y0; yy <= min(y1, h-1); ++yy) {
     for (let xx = x0; xx <= min(x1, w-1); ++xx) {
-      let cellabove = yy && cells[yy - 1][xx] || 'floor';
-      let cellleft = cells[yy][xx - 1] || 'floor';
-      let cell = cells[yy][xx];
-      let cellright = cells[yy][xx + 1] || 'floor';
-      let cellbelow = yy < h - 1 && cells[yy + 1][xx] || 'floor';
-      let spr;
-      let z;
-      if (cell === 'wall') {
-        if (cellabove === 'floor' && cellbelow === 'floor') {
-          spr = 'wall-h';
-        } else if (cellleft === 'floor' && cellright === 'floor') {
-          spr = 'wall-v';
-        } else {
-          spr = 'wall-corner';
-        }
-        z = Z.WALLS;
-      } else if (cell === 'door') {
-        if (cellleft === 'floor' && cellright === 'floor') {
-          spr = 'door-v';
-        } else {
-          spr = 'door-h';
-        }
-        z = Z.DOORS;
-      } else {
-        spr = 'floor-1';
-        z = Z.BACKGROUND;
+      let spr = tiles[yy][xx];
+      if (spr === 'none') {
+        continue;
       }
+      let z = TILE_Z[spr];
+      assert(z);
       autoAtlas('gfx', spr).draw({
         x: xx * TILESIZE,
         y: yy * TILESIZE,
@@ -1495,7 +1748,7 @@ export function doHeistView(dt: number, rect: UIBox): void {
   let unpaused_dt = dialogMoveLocked() || caught ? 0 : dt;
 
   doGuards(unpaused_dt);
-  doMotion(0);
+  doMotion(0, false);
 
   spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
   doHeistViewSub(rect);
@@ -1506,7 +1759,7 @@ export function doHeistView(dt: number, rect: UIBox): void {
   camera2d.setAspectFixed(game_width, game_height);
 }
 
-export function stateHeist(dt: number):void {
+export function stateHeist(dt: number, is_town: boolean):void {
   // center camera on hero
   if (DEBUG && keyDown(KEYS.SHIFT)) {
     dt *= 2;
@@ -1514,11 +1767,14 @@ export function stateHeist(dt: number):void {
   camera2d.setAspectFixed(game_width, game_height);
   let { unlocking, caught } = heist_state;
   let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
-  doTimer(unpaused_dt);
+  if (!is_town) {
+    doTimer(unpaused_dt);
 
-  doGuards(unpaused_dt);
+    doGuards(unpaused_dt);
+  }
+
   if (unlocking === -1) {
-    doMotion(dt);
+    doMotion(dt, is_town);
   }
 
   doHeistViewSub({
@@ -1531,5 +1787,26 @@ export function stateHeist(dt: number):void {
   doFloaters(dt);
   // camera back to normal for HUD
   camera2d.setAspectFixed(game_width, game_height);
-  drawHeistHUD(dt);
+  drawHeistHUD(dt, is_town);
+}
+
+export function initTownMap(initial: boolean): void {
+  palette = getPalette();
+  // eslint-disable-next-line n/global-require
+  initMap('town', require('./town.json'));
+  heist_state = new HeistState();
+  if (initial) {
+    heist_state.pos = [
+      7.5,
+      14.5,
+    ];
+    heist_state.dir = 2;
+  } else {
+    heist_state.pos = [
+      16.5,
+      8.5,
+    ];
+    heist_state.dir = 3;
+  }
+  heist_state.timer = heist_state.time_max = 0;
 }

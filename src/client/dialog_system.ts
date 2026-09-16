@@ -385,11 +385,11 @@ export function dialogRun(
   let active_dialog_non_null = active_dialog;
   if (text_full && !active_state.ff_down) {
     if (actionEdge('up')) {
-      active_state.selected = max(0, active_state.selected - 1);
+      active_state.selected = (active_state.selected - 1 + num_buttons) % num_buttons;
       playUISound('rollover');
     }
     if (actionEdge('down')) {
-      active_state.selected = min(num_buttons - 1, active_state.selected + 1);
+      active_state.selected = (active_state.selected + 1) % num_buttons;
       playUISound('rollover');
     }
     for (let ii = 0; ii < num_buttons; ++ii) {

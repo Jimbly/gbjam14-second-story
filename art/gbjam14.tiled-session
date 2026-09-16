@@ -1,0 +1,43 @@
+{
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "file.lastUsedOpenFilter": "All Files (*)",
+    "fileStates": {
+        "gfx.tsx": {
+            "dynamicWrapping": true
+        },
+        "jail.tmx": {
+            "scale": 8.007142857142856,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 91.79304192685105,
+                "y": 84.86173059768063
+            }
+        },
+        "shop.tmx": {
+            "scale": 5.5,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 151.45454545454544,
+                "y": 73.90909090909092
+            }
+        }
+    },
+    "last.exportedFilePath": "C:/Code/glovjs/gbjam14/src/client",
+    "last.imagePath": "C:/Code/glovjs/gbjam14/src/client/atlases/gfx",
+    "map.height": 40,
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 14,
+    "map.tileWidth": 14,
+    "map.width": 60,
+    "openFiles": [
+    ],
+    "project": "gbjam14.tiled-project",
+    "properties.customExpanded": true,
+    "recentFiles": [
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.type": 1
+}

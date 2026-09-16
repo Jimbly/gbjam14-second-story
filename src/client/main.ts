@@ -30,9 +30,9 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialog, dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { doHeistView, doTimer, finishUnlocking, stateHeist, stateHeistInit } from './heist';
+import { doHeistView, doTimer, finishUnlocking, initTownMap, stateHeist, stateHeistInit } from './heist';
 import { playSound, SOUND_DATA } from './sound_data';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -40,14 +40,6 @@ const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
-Z.SPRITES = 10;
-Z.WALLS = 5;
-Z.CHESTS = 5;
-Z.DOORS = 9;
-Z.LIGHT = 20;
-Z.HERO = 30;
-Z.GUARDS = 31;
-Z.FLOATERS = 150;
 Z.REPALETTE = 99999;
 
 
@@ -142,7 +134,7 @@ class PlayerState {
   money = 0;
   num_picks = 2;
   goal = 0;
-  mode: 'status' | 'unlock' | 'heist' = 'status';
+  mode: 'status' | 'unlock' | 'heist' | 'town' = 'status';
   is_flipped: boolean[] = [];
   picks: number[] = [];
 }
@@ -152,7 +144,6 @@ function newGameInit(): void {
   player_state = new PlayerState();
   player_state.mode = 'status';
   dialogReset();
-  dialog('choose');
 }
 
 type PickAnim = {
@@ -527,6 +518,13 @@ function leavePicking(): void {
   player_state.mode = 'heist';
 }
 
+function startTown(initial: boolean): void {
+  initTownMap(initial);
+  player_state.mode = 'town';
+  dialogReset();
+  // dialog('choose');
+}
+
 export function leaveHeist(success: boolean, loot: number): void {
   if (success && !loot) {
     // no sound, had a UI action leading up to this
@@ -536,9 +534,7 @@ export function leaveHeist(success: boolean, loot: number): void {
     playSound('fail');
   }
   player_state.money += loot;
-  player_state.mode = 'status';
-  dialogReset();
-  dialog('choose');
+  startTown(false);
 }
 
 function stateLockPick(dt: number): void {
@@ -646,7 +642,9 @@ function statePlay(dt: number): void {
   if (player_state.mode === 'unlock') {
     return stateLockPick(dt);
   } else if (player_state.mode === 'heist') {
-    return stateHeist(dt);
+    return stateHeist(dt, false);
+  } else if (player_state.mode === 'town') {
+    return stateHeist(dt, true);
   } else if (player_state.mode === 'status') {
     return stateStatus(dt);
   }
@@ -706,6 +704,7 @@ export function main(): void {
 
   newGameInit();
   engine.setState(statePlay);
-  startHeist(0);
+  startTown(true);
+  // startHeist(0);
   // startUnlocking(null);
 }

@@ -35,7 +35,7 @@ dialogRegister({
 dialogRegister({
   choose: function (param: string) {
     dialogPush({
-      text: 'CHOOSE A HEIST',
+      text: 'WHERE SHOULD I DO SOME "SECOND STORY WORK"?',
       buttons: [{
         label: 'SLUMS',
         cb: function () {
@@ -50,6 +50,11 @@ dialogRegister({
         label: 'OLD MONEY',
         cb: function () {
           startHeist(2);
+        }
+      }, {
+        label: 'NOT YET...',
+        cb: function () {
+          // nothing
         }
       }],
     });
