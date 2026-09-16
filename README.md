@@ -1,12 +1,7 @@
 GBJam14 - "Old Gold"
 ============================
 
-Main menu
-  * New game
-    * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
-
 Town flow
-* Cancel opens status screen / pause menu with exit, return, options
 * Shopping
   * Buy Lockpicks
   * Quest items: dog treat; guard bribe
@@ -16,7 +11,8 @@ Town flow
 * Heist
   * 3 default locations
   * special location if known (or, * on a default if quest objective)
-* Exit to main menu (autosave)
+* New game
+  * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
 * Prison flow and escape?
 
 Lockpicking

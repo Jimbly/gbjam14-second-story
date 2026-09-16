@@ -711,7 +711,7 @@ export function startHeist(index: number): void {
   stateHeistInit(index);
 }
 
-function stateStatus(dt: number): void {
+export function stateStatus(dt: number): void {
   let x = 2;
   let y = 2;
   let w = game_width - x * 2;
@@ -856,5 +856,7 @@ export function main(): void {
   titleInit();
   if (0) {
     optionsMenu('title');
+  } else if (1) {
+    loadGame();
   }
 }

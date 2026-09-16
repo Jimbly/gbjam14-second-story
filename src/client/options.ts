@@ -5,7 +5,7 @@ import { settingsGet, settingsRegister, settingsSet } from 'glov/client/settings
 import { uiGetFont } from 'glov/client/ui';
 import { actionEdge } from './binds';
 import { game_height, game_width } from './globals';
-import { backToGame, getPaletteFont, queueTransitionDitherUpDown, saveGame, topOfFrame } from './main';
+import { backToGame, getPaletteFont, queueTransitionDitherUpDown, saveGame, stateStatus, topOfFrame } from './main';
 import { playSound } from './sound_data';
 import { titleInit } from './title';
 
@@ -42,7 +42,8 @@ function stateOptionsMenu(dt: number): void {
     playSound('rollover');
   }
 
-  let y = floor(game_height / 4);
+  let y = options_from === 'title' ? floor(game_height / 4) :
+    game_height / 2;
   let font = uiGetFont();
 
   const BUTTON_H = 8;
@@ -182,6 +183,10 @@ function stateOptionsMenu(dt: number): void {
     }
     ++selidx;
     y += button_h + 2;
+  }
+
+  if (options_from === 'game') {
+    stateStatus(dt);
   }
 }
 
