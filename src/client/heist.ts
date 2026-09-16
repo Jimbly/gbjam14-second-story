@@ -25,12 +25,13 @@ import {
   v2sub,
   Vec4,
 } from 'glov/common/vmath';
-import { actionDown } from './binds';
+import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
 import { dialog, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import { getPalette, leaveHeist, PickState, randInt, startUnlocking } from './main';
 import { playSound } from './sound_data';
+import { optionsMenu } from './options';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, sin, sqrt } = Math;
@@ -1788,6 +1789,10 @@ export function stateHeist(dt: number, is_town: boolean):void {
   // camera back to normal for HUD
   camera2d.setAspectFixed(game_width, game_height);
   drawHeistHUD(dt, is_town);
+
+  if (actionEdge('cancel')) {
+    optionsMenu('game');
+  }
 }
 
 export function initTownMap(initial: boolean): void {

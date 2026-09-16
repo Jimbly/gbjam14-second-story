@@ -1,8 +1,9 @@
 /* eslint n/global-require:off */
 // eslint-disable-next-line import/order
 const local_storage = require('glov/client/local_storage');
-local_storage.setStoragePrefix('glovjs-playground'); // Before requiring anything else that might load from this
+local_storage.setStoragePrefix('gbj14'); // Before requiring anything else that might load from this
 
+import assert from 'assert';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
@@ -10,6 +11,7 @@ import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
 import { inputPadMode } from 'glov/client/input';
+import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
@@ -34,6 +36,9 @@ import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialo
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import { doHeistView, doTimer, finishUnlocking, initTownMap, stateHeist, stateHeistInit } from './heist';
 import { playSound, SOUND_DATA } from './sound_data';
+import { titleInit } from './title';
+import { optionsMenu } from './options';
+import { settingsGet } from 'glov/client/settings';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -63,12 +68,24 @@ const palette_font = [
   0xd27032ff,
   0xfcea9cff,
 ];
-const palette = palette_font.map((c) => {
+function toVec4(c: number): Vec4 {
   return vec4ColorFromIntColor(vec4(), c);
-});
+}
+const palette = palette_font.map(toVec4);
 export function getPalette(): Vec4[] {
   return palette;
 }
+export function getPaletteFont(): number[] {
+  return palette_font;
+}
+
+const PALETTE_DARK = palette;
+const PALETTE_GB = [
+  0x081820ff,
+  0x346856ff,
+  0x88c070ff,
+  0xe0f8d0ff,
+].map(toVec4);
 
 const font_style0 = fontStyleColored(null, palette_font[0]);
 const font_style1 = fontStyleColored(null, palette_font[1]);
@@ -140,10 +157,12 @@ class PlayerState {
 }
 let player_state = new PlayerState();
 
-function newGameInit(): void {
-  player_state = new PlayerState();
-  player_state.mode = 'status';
-  dialogReset();
+export function saveGame(): void {
+  localStorageSetJSON<SavedGame>('savegame', {
+    money: player_state.money,
+    num_picks: player_state.num_picks,
+    goal: player_state.goal,
+  });
 }
 
 type PickAnim = {
@@ -535,6 +554,7 @@ export function leaveHeist(success: boolean, loot: number): void {
   }
   player_state.money += loot;
   startTown(false);
+  saveGame();
 }
 
 function stateLockPick(dt: number): void {
@@ -570,17 +590,18 @@ function stateLockPick(dt: number): void {
   }
 }
 
-function topOfFrame(): void {
+export function topOfFrame(): void {
   camera2d.setAspectFixed(game_width, game_height);
+  let pal = settingsGet('palette') ? PALETTE_GB : PALETTE_DARK;
   effectsQueue(Z.REPALETTE, function () {
     applyCopy({
       shader: 'repalette',
       params: {
         param: [1, 1],
-        pal0: palette[0],
-        pal1: palette[1],
-        pal2: palette[2],
-        pal3: palette[3],
+        pal0: pal[0],
+        pal1: pal[1],
+        pal2: pal[2],
+        pal3: pal[3],
       },
     });
   });
@@ -650,6 +671,41 @@ function statePlay(dt: number): void {
   }
 }
 
+type SavedGame = {
+  money: number;
+  num_picks: number;
+  goal: number;
+  // mode: PlayerState['mode'];
+};
+
+export function backToGame(): void {
+  engine.setState(statePlay);
+}
+
+export function newGameInit(): void {
+  player_state = new PlayerState();
+  dialogReset();
+  engine.setState(statePlay);
+  startTown(true);
+}
+
+export function loadGame(): void {
+  let data = localStorageGetJSON<SavedGame>('savegame');
+  assert(data);
+  player_state = new PlayerState();
+  player_state.money = data.money;
+  player_state.num_picks = data.num_picks;
+  player_state.goal = data.goal;
+  player_state.mode = 'town';
+  dialogReset();
+  engine.setState(statePlay);
+  startTown(player_state.goal === 0);
+}
+
+export function canLoad(): boolean {
+  return Boolean(localStorageGet('savegame'));
+}
+
 export function main(): void {
   if (platformParameterGet('reload_updates') && engine.DEBUG) {
     // Enable auto-reload, etc
@@ -702,9 +758,9 @@ export function main(): void {
   // preload
   autoAtlas('gfx', 'box');
 
-  newGameInit();
-  engine.setState(statePlay);
-  startTown(true);
+  // newGameInit();
   // startHeist(0);
   // startUnlocking(null);
+  titleInit();
+  // optionsMenu('title');
 }
