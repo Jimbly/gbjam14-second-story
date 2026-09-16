@@ -73,6 +73,7 @@ const HEISTS = [{
   chests_locked: 4,
   chest_value_simple: 65,
   chest_value_locked: 115,
+  tumblers: [4, 1], // [base + range*2]
 }, {
   guards_initial: 0,
   guards_total: 4,
@@ -88,6 +89,7 @@ const HEISTS = [{
   chests_locked: 5,
   chest_value_simple: 100,
   chest_value_locked: 200,
+  tumblers: [6, 1], // [base + range*2]
 }, {
   guards_initial: 2,
   guards_total: 12,
@@ -103,6 +105,7 @@ const HEISTS = [{
   chests_locked: 8,
   chest_value_simple: 150,
   chest_value_locked: 300,
+  tumblers: [6, 2], // [base + range*2]
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -121,6 +124,7 @@ const TOWNDEF: HeistDef = {
   alert_time: 0,
   chest_value_simple: 0,
   chest_value_locked: 0,
+  tumblers: [6, 0],
 };
 
 type MapEvent = {
@@ -131,6 +135,7 @@ type Chest = {
   pos: JSVec2;
   type: 'simple' | 'locked';
   value: number;
+  tumblers: number;
   progress: number;
   opened: boolean;
   pick_state: PickState | null;
@@ -621,11 +626,13 @@ function genLevel(def: HeistDef): void {
           --locked_chests;
         }
         let value = type === 'simple' ? def.chest_value_simple : def.chest_value_locked;
+        let tumblers = def.tumblers[0] + rand.range(def.tumblers[1]) * 2;
         occupied[x + y * w] = true;
         chests.push({
           pos: [x, y],
           type,
           value,
+          tumblers,
           progress: 0,
           opened: false,
           pick_state: null,
@@ -690,6 +697,7 @@ function genLevel(def: HeistDef): void {
       pos: [level.entrance[0] + 3, level.entrance[1]],
       type: 'simple',
       value: 200,
+      tumblers: 6,
       progress: 0,
       opened: false,
       pick_state: null,
@@ -698,6 +706,7 @@ function genLevel(def: HeistDef): void {
       pos: [level.entrance[0] + 5, level.entrance[1]],
       type: 'simple',
       value: 200,
+      tumblers: 6,
       progress: 0,
       opened: false,
       pick_state: null,
@@ -1175,6 +1184,9 @@ function doMotion(dt: number, is_town: boolean): void {
             let t = chest.value;
             chest.value = other.value;
             other.value = t;
+            t = chest.tumblers;
+            chest.tumblers = other.tumblers;
+            other.tumblers = t;
             chest.type = 'locked';
             other.type = 'simple';
             break;
@@ -1394,7 +1406,7 @@ function doGuards(dt: number): void {
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
     if (!guard.target) {
-      let was_chasing = guard.chasing;
+      let was_chasing = Boolean(guard.chasing);
       let guard_radius = guard.chasing ? 2.75 : 2.5;
       guard.chasing = false;
       if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius) {
@@ -1743,7 +1755,7 @@ function doFloaters(dt: number): void {
       if (heist_state.unlocking !== -1) {
         // start unlocking game
         let chest = chests[heist_state.unlocking];
-        chest.pick_state = startUnlocking(chest.pick_state);
+        chest.pick_state = startUnlocking(chest.tumblers, chest.pick_state);
       }
       continue;
     }

@@ -275,17 +275,17 @@ class PickState {
   anim: null | PickAnim = null;
 }
 export type { PickState };
-export function createPickState(): PickState {
+export function createPickState(num_tumblers: number): PickState {
   let pick_state = new PickState();
   pick_state.lock = [];
-  for (let ii = 0; ii < 4; ++ii) {
-    pick_state.lock.push(3, randInt(4) + 1);
+  for (let ii = 0; ii < num_tumblers; ++ii) {
+    pick_state.lock.push(randInt(4) + 1);
   }
   return pick_state;
 }
 let pick_state: PickState;
-function stateLockPickInit(pick_state_in: PickState | null): PickState {
-  pick_state = pick_state_in || createPickState();
+function stateLockPickInit(num_tumblers: number, pick_state_in: PickState | null): PickState {
+  pick_state = pick_state_in || createPickState(num_tumblers);
   pick_state.anim = null;
   pick_state.selected = 0;
   pick_state.queued_use = -1;
@@ -699,9 +699,9 @@ export function topOfFrame(): void {
   actionCheckBinds();
 }
 
-export function startUnlocking(pick_state_in: PickState | null): PickState {
+export function startUnlocking(num_tumblers: number, pick_state_in: PickState | null): PickState {
   player_state.mode = 'unlock';
-  return stateLockPickInit(pick_state_in);
+  return stateLockPickInit(num_tumblers, pick_state_in);
 }
 
 export function startHeist(index: number): void {
@@ -855,12 +855,15 @@ export function main(): void {
   autoAtlas('gfx', 'box');
 
   // newGameInit();
-  // startHeist(0);
-  // startUnlocking(null);
   titleInit();
-  if (0) {
-    optionsMenu('title');
-  } else if (1) {
-    loadGame();
+  if (engine.DEBUG) {
+    if (0) {
+      optionsMenu('title');
+    }
+    // loadGame();
+
+    engine.setState(statePlay);
+    startHeist(0);
+    // startUnlocking(12, null);
   }
 }

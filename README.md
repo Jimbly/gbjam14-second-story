@@ -1,7 +1,6 @@
 GBJam14 - "Old Gold"
 ============================
 
-smaller lock sizes on earlier levels
 fixed seed for special levels
 
 Town flow
@@ -17,6 +16,7 @@ Town flow
   * 3 default locations
   * special location if known (or, * on a default if quest objective) - no loot chests, just 1 info chest
   * do not allow doing medium tier until you've done a 2 of the previous tier "Maybe I should do 2 easy jobs first"
+  * guards spend too much time in main hallway on hard difficulty - bias away from that?
 * New game
 * Prison flow and escape?
 
