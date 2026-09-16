@@ -781,6 +781,10 @@ export function newGameInit(): void {
   startTown(true);
 }
 
+export function playerState(): PlayerState {
+  return player_state;
+}
+
 export function loadGame(): void {
   let data = localStorageGetJSON<SavedGame>('savegame');
   assert(data);

@@ -63,31 +63,46 @@ const HEISTS = [{
   guards_total: 4,
   w: 50,
   h: 40,
-  chests: DEBUG ? 0 : 2,
-  chests_locked: DEBUG? 0 : 1,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
   room_max_area: 10*8, // subdivide if smaller than this
   heist_time: 120000,
   alert_time: 30000,
-  chest_value_simple: 100,
-  chest_value_locked: 200,
+  chests: 8, // $720
+  chests_locked: 4,
+  chest_value_simple: 65,
+  chest_value_locked: 115,
 }, {
   guards_initial: 0,
   guards_total: 4,
   w: 50,
   h: 40,
-  chests: 10,
-  chests_locked: 5,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
   room_max_area: 10*8, // subdivide if smaller than this
   heist_time: 120000,
   alert_time: 30000,
+  chests: 10, // $1500
+  chests_locked: 5,
   chest_value_simple: 100,
   chest_value_locked: 200,
+}, {
+  guards_initial: 2,
+  guards_total: 12,
+  w: 50,
+  h: 40,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
+  room_max_area: 10*8, // subdivide if smaller than this
+  heist_time: 120000,
+  alert_time: 30000,
+  chests: 12, // $3000
+  chests_locked: 8,
+  chest_value_simple: 150,
+  chest_value_locked: 300,
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -842,6 +857,13 @@ function initMap(name: string, json: DataObject): void {
             });
           }
         }
+      } else if (tile === 'npc') {
+        if (name === 'shop') {
+          level.events.push({
+            pos: [xx, yy],
+            type: 'shop',
+          });
+        }
       }
     }
   }
@@ -888,6 +910,9 @@ function doEvent(event: MapEvent): void {
       break;
     case 'startheist':
       dialog('choose');
+      break;
+    case 'shop':
+      dialog('shop');
       break;
     default:
       dialogPush({
@@ -1173,7 +1198,7 @@ function doMotion(dt: number, is_town: boolean): void {
       heist_state.floaters.push({
         t: 0,
         pos: chest.pos,
-        msg: `[c=2]+$[c=3]${chest.value}`,
+        msg: `[c=2]+[c=3]${chest.value}[/c]G`,
       });
     }
   }
@@ -1493,7 +1518,7 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
     let eff_bonus = blend('loot', loot);
     markdownAuto({
       x: x + 2, y: y + 2, z: z + 1, w, h,
-      text: `[c=2]LOOT: [c=3]$${round(eff_bonus)}[/c][/c]`,
+      text: `[c=2]LOOT: [c=3]${round(eff_bonus)}G[/c][/c]`,
     });
   }
 
@@ -1514,7 +1539,7 @@ export function finishUnlocking(success: boolean, bonus: number, partial_progres
     heist_state.floaters.push({
       t: 0,
       pos: chest.pos,
-      msg: `[c=2]+$[c=3]${chest.value + bonus}`,
+      msg: `[c=2]+[c=3]${chest.value + bonus}[/c]G`,
     });
   } else {
     chest.progress = partial_progress;
@@ -1647,8 +1672,8 @@ function doHeistViewSub(rect: UIBox): void {
   let y0 = floor(camera2d.y0() / TILESIZE);
   let y1 = floor(camera2d.y1() / TILESIZE);
   let { tiles, chests, guards, w, h } = level;
-  for (let yy = y0; yy <= min(y1, h-1); ++yy) {
-    for (let xx = x0; xx <= min(x1, w-1); ++xx) {
+  for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
+    for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
       let spr = tiles[yy][xx];
       if (spr === 'none') {
         continue;

@@ -1,18 +1,23 @@
 GBJam14 - "Old Gold"
 ============================
 
+smaller lock sizes on earlier levels
+fixed seed for special levels
+
 Town flow
 * Shopping
   * Buy Lockpicks
   * Quest items: dog treat; guard bribe
-* Explore City
+* into dialog and goal advancement
+  * retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
+* Explore City / Rumor person
   * Single story dialog
   * Random tidbits?
 * Heist
   * 3 default locations
-  * special location if known (or, * on a default if quest objective)
+  * special location if known (or, * on a default if quest objective) - no loot chests, just 1 info chest
+  * do not allow doing medium tier until you've done a 2 of the previous tier "Maybe I should do 2 easy jobs first"
 * New game
-  * into dialog - retiring, new city, what happened?, robbed, at least I've got these 2 basic picks, might be old, but I'll get some gold, time for some second story work
 * Prison flow and escape?
 
 Lockpicking
