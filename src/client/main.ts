@@ -50,7 +50,7 @@ import {
 } from 'glov/client/ui';
 import { Rec } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { v3copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
+import { vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
@@ -68,6 +68,7 @@ import {
   finishUnlocking,
   initTownMap,
   isJailbreak,
+  playerFloater,
   stateHeist,
   stateHeistInit,
 } from './heist';
@@ -99,7 +100,7 @@ let font_tiny: Font;
 //   0xe0f8d0ff,
 // ];
 const palette_font = [
-  0x080408ff,
+  0x120812ff,
   0x682e5bff,
   0xd27032ff,
   0xfcea9cff,
@@ -773,6 +774,9 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
   }
   player_state.money += loot;
   startTown(false, jailbreak);
+  if (loot) {
+    playerFloater(`[c=3]+${loot}[/c][c=2]G[/c]`);
+  }
   saveGame();
 }
 
@@ -833,7 +837,7 @@ export function topOfFrame(is_title: boolean): void {
     PALETTE_DARK;
     // heistStarted() || player_state.mode === 'unlock' ? PALETTE_DARK : COLOR_PALETTES[4];
 
-  v3copy(engine.border_clear_color, pal[0]);
+  // v3copy(engine.border_clear_color, pal[is_title ? 1 : 0]);
 
   last_pal = pal;
   effectsQueue(Z.REPALETTE, function () {
@@ -1016,13 +1020,13 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    loadGame();
+    // loadGame();
 
-    engine.setState(statePlay);
-    player_state.num_picks = 10;
-    startHeist(0);
+    // engine.setState(statePlay);
+    // player_state.num_picks = 10;
+    // startHeist(0);
     // startTown(false, false);
-    startUnlocking(3, null);
+    // startUnlocking(3, null);
     // dialog('informant');
   }
 }

@@ -24,6 +24,7 @@ const { floor } = Math;
 
 let title_anim: AnimationSequencer | null = null;
 let title_alpha = {
+  jam: 0,
   title: 0,
   sub: 0,
   button: 0,
@@ -39,10 +40,13 @@ function stateTitleInit(): void {
   title_anim = animationSequencerCreate();
   let t = 0;
 
-  t = title_anim.add(0, 300, (progress) => {
+  title_anim.add(0, 400, (progress) => {
+    title_alpha.jam = progress;
+  });
+  title_anim.add(200, 400, (progress) => {
     title_alpha.title = progress;
   });
-  t = title_anim.add(t + 300, 300, (progress) => {
+  t = title_anim.add(400, 300, (progress) => {
     title_alpha.sub = progress;
   });
   title_anim.add(t + 500, 300, (progress) => {
@@ -58,11 +62,12 @@ function stateTitle(dt: number): void {
   let palette = getPalette();
 
   if (title_frame === 0) {
-    drawRect(0, 0, game_width, game_height, 1, palette[1]);
+    drawRect(0, 0, game_width, game_height, 1, palette[0]);
     queueTransitionDither(350);
     ++title_frame;
     return;
   }
+  drawRect(0, 0, game_width, game_height, 1, palette[1]);
   if (title_frame === 1) {
     if (transitionActive()) {
       return;
@@ -76,7 +81,7 @@ function stateTitle(dt: number): void {
   let W = game_width;
   let H = game_height;
 
-  if (title_anim && (mouseDownAnywhere() || actionEdge('accept') || DEBUG)) {
+  if (title_anim && (mouseDownAnywhere() || actionEdge('accept') || DEBUG && false)) {
     title_anim.update(Infinity);
     title_anim = null;
   }
@@ -95,15 +100,24 @@ function stateTitle(dt: number): void {
     y: -8,
     w: 128,
     h: 80,
-    color: [title_alpha.sub, title_alpha.sub, title_alpha.sub, 1],
+    color: [1, 1, 1, title_alpha.title],
+  });
+
+  autoAtlas('gfx', 'gbjam').draw({
+    x: game_width - 68 + 1,
+    y: game_height - 54 + 1,
+    w: 68,
+    h: 54,
+    color: [1, 1, 1, title_alpha.jam],
   });
 
   font.draw({
-    color: palette_font[1],
+    color: palette_font[0],
     alpha: title_alpha.sub,
     x: 0,
     y: H - text_height * 3 - 3,
-    w: W, align: ALIGN.HCENTER | ALIGN.HWRAP,
+    w: W - 64,
+    align: ALIGN.HCENTER | ALIGN.HWRAP,
     text: 'By Jimb Esser\nand CollectorChaos\nfor Gameboy Jam 14',
   });
 
@@ -130,7 +144,7 @@ function stateTitle(dt: number): void {
       playSound('rollover');
     }
 
-    y = game_height / 2;
+    y = game_height / 2 - 4;
 
     font.draw({
       ...button_param,
