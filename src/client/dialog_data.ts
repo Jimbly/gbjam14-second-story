@@ -20,6 +20,7 @@ import {
   dialogPush,
   dialogRegister,
 } from './dialog_system';
+import { playerFloater } from './heist';
 import { GOAL_LIST, playerState, saveGame, startHeist } from './main';
 import { titleInit } from './title';
 
@@ -210,6 +211,7 @@ dialogRegister({
         } else {
           player_state.money -= 500;
           player_state.num_picks++;
+          dialog('shop');
         }
       }
     }];
@@ -232,6 +234,7 @@ dialogRegister({
           } else {
             player_state.money -= extra_cost;
             player_state.goal = GOAL_LIST[GOAL_LIST.indexOf(player_state.goal) + 1];
+            playerFloater('PURCHASED!');
           }
         }
       });
@@ -240,7 +243,7 @@ dialogRegister({
       label: 'NOTHING RIGHT NOW',
     });
     dialogPush({
-      text: `GOLD: ${player_state.money}\nLOCKPICKS: ${player_state.num_picks}/10\n\nWhat would you like to buy?`,
+      text: `GOLD: [c=0]${player_state.money}[/c]\nLOCKPICKS: [c=0]${player_state.num_picks}[/c]/10\n\nWhat would you like to buy?`,
       buttons,
     });
   },
@@ -248,7 +251,7 @@ dialogRegister({
     dialogLine(HERO,
       'What just happened? Someone robbed [c=0]me[/c], of all people?! I swear they will regret that.',
       dialogLine.bind(null, HERO,
-        'Ah, I guess I\'m getting rusty in my old age. Well, at least I\'ve still got a couple basic lockpicks in my boots.  I may be old, but I\'ll get some gold...',
+        'Ah, I guess I\'m getting rusty in my old age. Well, at least I\'ve still got a couple [c=0]basic lockpicks[/c] in my boots.  I may be old, but I\'ll get some gold...',
       )
     );
   },
@@ -257,7 +260,7 @@ dialogRegister({
     if (player_state.goal === 'mugged') {
       player_state.goal = 'informant1';
       dialogLine(HERO,
-        'Hey, you see the mugging that happened hear the other night?',
+        'Hey, you see the mugging that happened here the other night?',
         dialogLine.bind(null, INFORMANT,
           'I might have, but I see better with a full wallet...',
           dialogLine.bind(null, HERO,
@@ -334,7 +337,7 @@ dialogRegister({
   },
   townexit: function () {
     let { goal } = playerState();
-    if (goal === 'intro') {
+    if (goal === 'intro0' || goal === 'intro1') {
       dialogLine(HERO, 'What a peaceful looking town, this will be great for my retirement.  I should take a look around.');
     } else if (goal === 'outtahere') {
       saveGame();
@@ -354,5 +357,8 @@ dialogRegister({
     } else {
       dialogLine(HERO, 'I can\'t leave now, I\'ve got unfinished business.');
     }
+  },
+  intro: function () {
+    dialogLine(HERO, 'Ah, finally here. I\'ve had enough of The City, lucrative though it was. This looks like a nice little town to retire in.');
   },
 });

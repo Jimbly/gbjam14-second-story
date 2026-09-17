@@ -4,7 +4,8 @@ const local_storage = require('glov/client/local_storage');
 local_storage.setStoragePrefix('gbj14'); // Before requiring anything else that might load from this
 
 export const GOALS = {
-  intro: 'Enjoy peaceful retirement in a new town',
+  intro0: 'Enjoy peaceful retirement in a new town',
+  intro1: 'Enjoy peaceful retirement in a new town',
   mugged: 'Find out who robbed me',
   informant1: 'Bribe informant',
   search1: 'Search the Foulmouth residence',
@@ -57,9 +58,9 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialog, dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { doHeistView, doTimer, finishUnlocking, initTownMap, isJailbreak, stateHeist, stateHeistInit } from './heist';
+import { doHeistView, doTimer, doubleLockBonus, finishUnlocking, initTownMap, isJailbreak, stateHeist, stateHeistInit } from './heist';
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
@@ -254,7 +255,7 @@ export function randInt(mx: number): number {
 class PlayerState {
   money = 0;
   num_picks = 2;
-  goal: GoalID = 'intro';
+  goal: GoalID = 'intro0';
   mode: 'status' | 'unlock' | 'heist' | 'town' = 'status';
   is_flipped: boolean[] = [];
   picks: number[] = [];
@@ -491,7 +492,7 @@ function usePick(idx: number): void {
     if (failed) {
       pick_state.bonus = max(0, pick_state.bonus - 10);
     } else {
-      pick_state.bonus += only_one_target ? 5 : 20;
+      pick_state.bonus += only_one_target ? 5 : doubleLockBonus();
     }
   }
   pick_state.anim = {
@@ -606,7 +607,7 @@ function drawPickingHUD(dt: number): void {
   if (pick_state.progress !== pick_state.lock.length) {
     let selected = player_state.picks[pick_state.selected];
     if (selected > 4 && pick_state.progress < pick_state.lock.length - 1) {
-      extra = '+20';
+      extra = `+${doubleLockBonus()}`;
     } else {
       extra = '+5';
     }
@@ -615,7 +616,7 @@ function drawPickingHUD(dt: number): void {
     bonus = pick_state.bonus;
   }
   let eff_bonus = blend('bonus', bonus);
-  let max_bonus = ceil(pick_state.lock.length / 2) * 20;
+  let max_bonus = floor(pick_state.lock.length / 2) * doubleLockBonus();
   drawBox({
     x: x + 1,
     y: y + 1,
@@ -827,7 +828,7 @@ export function loadGame(): void {
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
-  startTown(player_state.goal === 'intro', false);
+  startTown(player_state.goal === 'intro0', false);
 }
 
 export function canLoad(): boolean {
@@ -895,9 +896,10 @@ export function main(): void {
     }
     loadGame();
 
-    engine.setState(statePlay);
-    // startHeist(6);
-    startTown(false, false);
+    // engine.setState(statePlay);
+    // startHeist(0);
+    // startTown(false, false);
     // startUnlocking(12, null);
+    // dialog('informant');
   }
 }

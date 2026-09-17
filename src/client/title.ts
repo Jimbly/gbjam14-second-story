@@ -108,7 +108,7 @@ function stateTitle(dt: number): void {
     x: 0,
     y: H - text_height * 2 - 3,
     w: W, align: ALIGN.HCENTER | ALIGN.HWRAP,
-    text: 'BY JIMB ESSER\nFOR GAMEBOY JAM 14',
+    text: 'By Jimb Esser\nfor Gameboy Jam 14',
   });
 
   const BUTTON_H = 8;

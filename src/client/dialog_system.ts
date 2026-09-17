@@ -4,6 +4,7 @@ import {
   Font,
   FontStyle,
   fontStyle,
+  fontStyleColored,
 } from 'glov/client/font';
 import {
   ANY,
@@ -50,6 +51,7 @@ import {
 } from 'glov/common/vmath';
 import { actionEdge } from './binds';
 import { FONT_HEIGHT } from './globals';
+import { getPaletteFont } from './main';
 
 const { ceil, max, min, round } = Math;
 
@@ -234,7 +236,7 @@ export function anyKeyDown(): boolean {
   );
 }
 
-const BUTTON_PAD = 1;
+const BUTTON_PAD = -2;
 let seen_no_key_down = false;
 export function dialogRun(
   dt: number,
@@ -250,6 +252,11 @@ export function dialogRun(
   let { x, y, w, h, z, pad_top, pad_bottom, pad_bottom_with_buttons, pad_lr, pad_image } = viewport;
   const HPAD = pad_lr; // default 4
   const BUTTON_HEAD = HPAD;
+
+  const palette_font = getPaletteFont();
+  const font_style0 = fontStyleColored(null, palette_font[0]);
+  const font_style2 = fontStyleColored(null, palette_font[2]);
+
   z = z || Z.DIALOG || Z.STATUS;
   if (!active_dialog) {
     seen_no_key_down = false;
@@ -300,7 +307,8 @@ export function dialogRun(
   }
 
   let num_buttons = buttons && buttons.length || 0;
-  if (num_buttons) {
+  let just_pak = num_buttons === 1 && !buttons![0].label;
+  if (num_buttons && !just_pak) {
     pad_bottom = pad_bottom_with_buttons;
   }
   let button_h = uiButtonHeight();
@@ -314,7 +322,8 @@ export function dialogRun(
       button_h = button_h - FONT_HEIGHT + FONT_HEIGHT * button_label_lines;
     }
   }
-  let buttons_h = num_buttons * button_h + (num_buttons ? BUTTON_HEAD + (num_buttons - 1) * BUTTON_PAD : 0);
+  let buttons_h = just_pak ? 0 :
+    (num_buttons * button_h + (num_buttons ? BUTTON_HEAD + (num_buttons - 1) * BUTTON_PAD : 0));
   const text_height = uiTextHeight();
   let size = text_height;
   let line_height = size;
@@ -384,49 +393,11 @@ export function dialogRun(
 
   let active_dialog_non_null = active_dialog;
   if (text_full && !active_state.ff_down) {
-    if (actionEdge('up')) {
-      active_state.selected = (active_state.selected - 1 + num_buttons) % num_buttons;
-      playUISound('rollover');
-    }
-    if (actionEdge('down')) {
-      active_state.selected = (active_state.selected + 1) % num_buttons;
-      playUISound('rollover');
-    }
-    for (let ii = 0; ii < num_buttons; ++ii) {
-      let button = buttons![ii];
-      // let hotkeys = [];
-      // if (ii < 10) {
-      //   hotkeys.push(KEYS['1'] + ii);
-      // }
-      // if (button.hotkeys) {
-      //   hotkeys = hotkeys.concat(button.hotkeys);
-      // }
-      let selected = active_state.selected === ii;
-      let button_rect = {
-        x: x + HPAD,
-        w: button_w,
-        h: button_h,
-        y: yy,
-      };
-      buttonTextDraw({
-        ...button_rect,
-        text: button.label,
-        z,
-        align: button_align,
-        markdown: true,
-      }, selected ? 'rollover' : 'regular', selected);
-      let go = false;
-      if (selected && actionEdge('accept')) {
+    if (just_pak) {
+      // just "press any key"
+      let button = buttons![0];
+      if (actionEdge('accept') || actionEdge('cancel')) {
         playUISound('button_click');
-        go = true;
-      }
-      if (spot({
-        def: SPOT_DEFAULT_BUTTON,
-        ...button_rect,
-      }).ret) {
-        go = true;
-      }
-      if (go) {
         active_dialog = null;
         if (button.cb) {
           if (typeof button.cb === 'string') {
@@ -438,6 +409,66 @@ export function dialogRun(
         }
       }
       yy += button_h + BUTTON_PAD;
+    } else {
+      if (actionEdge('up')) {
+        active_state.selected = (active_state.selected - 1 + num_buttons) % num_buttons;
+        playUISound('rollover');
+      }
+      if (actionEdge('down')) {
+        active_state.selected = (active_state.selected + 1) % num_buttons;
+        playUISound('rollover');
+      }
+      for (let ii = 0; ii < num_buttons; ++ii) {
+        let button = buttons![ii];
+        // let hotkeys = [];
+        // if (ii < 10) {
+        //   hotkeys.push(KEYS['1'] + ii);
+        // }
+        // if (button.hotkeys) {
+        //   hotkeys = hotkeys.concat(button.hotkeys);
+        // }
+        let selected = active_state.selected === ii;
+        let button_rect = {
+          x: x + HPAD,
+          w: button_w,
+          h: button_h,
+          y: yy,
+        };
+        buttonTextDraw({
+          ...button_rect,
+          text: button.label,
+          font_style_normal: font_style2,
+          font_style_focused: font_style0,
+          z,
+          align: button_align,
+          markdown: true,
+        }, selected ? 'rollover' : 'regular', selected);
+        let go = false;
+        if (selected && actionEdge('accept')) {
+          playUISound('button_click');
+          go = true;
+        }
+        if (inputTouchMode()) {
+          if (spot({
+            def: SPOT_DEFAULT_BUTTON,
+            ...button_rect,
+          }).ret) {
+            go = true;
+          }
+        }
+        if (go) {
+          active_dialog = null;
+          if (button.cb) {
+            if (typeof button.cb === 'string') {
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
+              dialog(button.cb);
+            } else {
+              button.cb();
+            }
+          }
+        }
+        yy += button_h + BUTTON_PAD;
+      }
     }
     active_state.buttons_vis = true;
   }

@@ -69,8 +69,8 @@ let anim: AnimationSequencer | null = null;
 const HEISTS = [{
   guards_initial: 0,
   guards_total: 4,
-  w: 50,
-  h: 40,
+  w: 36,
+  h: 26,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
@@ -84,6 +84,7 @@ const HEISTS = [{
   tumblers: [4, 1], // [base + range*2]
   fixed_seed: 0,
   intro_dialog: '',
+  double_bonus: 20,
 }, {
   guards_initial: 0,
   guards_total: 4,
@@ -102,6 +103,7 @@ const HEISTS = [{
   tumblers: [6, 1], // [base + range*2]
   fixed_seed: 0,
   intro_dialog: '',
+  double_bonus: 30,
 }, {
   guards_initial: 2,
   guards_total: 12,
@@ -120,6 +122,7 @@ const HEISTS = [{
   tumblers: [6, 2], // [base + range*2]
   fixed_seed: 0,
   intro_dialog: '',
+  double_bonus: 40,
 }, {
   // special house #1
   guards_initial: 2,
@@ -141,6 +144,7 @@ const HEISTS = [{
   intro_dialog: 'So, this is the\nFoulmouth residence...',
   reward_dialog: 'special1',
   reward_goal: 'find2a',
+  double_bonus: 30,
 }, {
   // special house #2
   guards_initial: 3,
@@ -162,6 +166,7 @@ const HEISTS = [{
   intro_dialog: 'Strongfist Manor...\nWhat secrets do you hide?',
   reward_dialog: 'special2',
   reward_goal: 'find3a',
+  double_bonus: 40,
 }, {
   // special house #3
   guards_initial: 8,
@@ -183,6 +188,7 @@ const HEISTS = [{
   intro_dialog: 'So this is where Ramirrors\nkeeps his treasure...',
   reward_dialog: 'special3',
   reward_goal: 'outtahere',
+  double_bonus: 40,
 }, {
   // debug
   guards_initial: 2,
@@ -200,6 +206,7 @@ const HEISTS = [{
   chest_value_simple: 100,
   chest_value_locked: 100,
   tumblers: [2, 0], // [base + range*2]
+  double_bonus: 20,
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -221,6 +228,7 @@ const TOWNDEF: HeistDef = {
   tumblers: [6, 0],
   fixed_seed: 0,
   intro_dialog: '',
+  double_bonus: 0,
 };
 
 type MapEvent = {
@@ -388,6 +396,7 @@ function tilesToCells(level: Level): void {
         case 'floor-1':
         case 'floor-2':
         case 'event-1':
+        case 'event-2':
         case 'chest-opened':
         case 'chest-aborted':
         case 'none':
@@ -432,6 +441,7 @@ const TILED_TILESET: Rec<number, string> = {
   20: 'event-1',
   21: 'gate',
   22: 'celldoor',
+  23: 'event-2',
 };
 function levelFromJSON(json: DataObject, jailbreak: boolean): Level {
   let level = new Level(TOWNDEF);
@@ -609,123 +619,130 @@ function genLevel(def: HeistDef): void {
   subdivide(vpath + 3, hpath + 3, w - (vpath + 3) - 1, h - (hpath + 3) - 1);
 
   // add doors
-  for (let ii = rooms.length - 1; ii >= 0; --ii) {
-    let room = rooms[ii];
-    // if hallway-like, add to each end
-    if (room[2] * 3 < room[3]) {
-      // vertical hallway
-      door(room[0] + roundRandom((room[2] - 1)/2), room[1] - 1);
-      door(room[0] + roundRandom((room[2] - 1)/2), room[1] + room[3]);
-    }
-    if (room[3] * 3 < room[2]) {
-      // horizontal hallway
-      door(room[0] - 1, room[1] + roundRandom((room[3] - 1)/2));
-      door(room[0] + room[2], room[1] + roundRandom((room[3] - 1)/2));
-    }
-    // otherwise, if a largish room, random wall, middleish
-    if (room[2] >= 5 && room[3] >= 5 && room[2] * room[3] > room_min_area + (room_max_area - room_min_area) * 0.5) {
-      let edge = rand.range(4);
-      if (edge < 2) {
-        door(edge === 0 ? room[0] - 1 : room[0] + room[2],
-          room[1] + 2 + rand.range(room[3] - 4));
-      } else {
-        door(room[0] + 2 + rand.range(room[2] - 4),
-          edge === 2 ? room[1] - 1 : room[1] + room[3]);
+  function addOneDoorPerRoom(): void {
+    for (let ii = rooms.length - 1; ii >= 0; --ii) {
+      let room = rooms[ii];
+      // if hallway-like, add to each end
+      if (room[2] * 3 < room[3]) {
+        // vertical hallway
+        door(room[0] + roundRandom((room[2] - 1)/2), room[1] - 1);
+        door(room[0] + roundRandom((room[2] - 1)/2), room[1] + room[3]);
       }
-    } else {
-      // otherwise, just a random door
-      let edge = rand.range(4);
-      if (edge < 2) {
-        door(edge === 0 ? room[0] - 1 : room[0] + room[2],
-          room[1] + rand.range(room[3]));
+      if (room[3] * 3 < room[2]) {
+        // horizontal hallway
+        door(room[0] - 1, room[1] + roundRandom((room[3] - 1)/2));
+        door(room[0] + room[2], room[1] + roundRandom((room[3] - 1)/2));
+      }
+      // otherwise, if a largish room, random wall, middleish
+      if (room[2] >= 5 && room[3] >= 5 && room[2] * room[3] > room_min_area + (room_max_area - room_min_area) * 0.5) {
+        let edge = rand.range(4);
+        if (edge < 2) {
+          door(edge === 0 ? room[0] - 1 : room[0] + room[2],
+            room[1] + 2 + rand.range(room[3] - 4));
+        } else {
+          door(room[0] + 2 + rand.range(room[2] - 4),
+            edge === 2 ? room[1] - 1 : room[1] + room[3]);
+        }
       } else {
-        door(room[0] + rand.range(room[2]),
-          edge === 2 ? room[1] - 1 : room[1] + room[3]);
+        // otherwise, just a random door
+        let edge = rand.range(4);
+        if (edge < 2) {
+          door(edge === 0 ? room[0] - 1 : room[0] + room[2],
+            room[1] + rand.range(room[3]));
+        } else {
+          door(room[0] + rand.range(room[2]),
+            edge === 2 ? room[1] - 1 : room[1] + room[3]);
+        }
       }
     }
   }
-  let reachable: boolean[][] = [];
-  for (let yy = 0; yy < h; ++yy) {
-    let row = [];
-    for (let xx = 0; xx < w; ++xx) {
-      row.push(false);
+  function addDoorsToUnreachable(): void {
+    let reachable: boolean[][] = [];
+    for (let yy = 0; yy < h; ++yy) {
+      let row = [];
+      for (let xx = 0; xx < w; ++xx) {
+        row.push(false);
+      }
+      reachable.push(row);
     }
-    reachable.push(row);
-  }
-  let neighbors: JSVec2[] = [];
-  function floodfill(startx: number, starty: number): void {
-    let todo = [startx, starty];
-    function push(xx: number, yy: number): void {
-      todo.push(xx, yy);
-      reachable[yy][xx] = true;
-    }
-    push(startx, starty);
-    let todoidx = 0;
-    while (todoidx < todo.length) {
-      let x = todo[todoidx++];
-      let y = todo[todoidx++];
-      for (let ii = 0; ii < DX.length; ++ii) {
-        let xx = x + DX[ii];
-        let yy = y + DY[ii];
-        if (xx < 0 || yy < 0 || xx >= w || yy >= h) {
-          continue;
-        }
-        if (reachable[yy][xx]) {
-          continue;
-        }
-        let cell = cells[yy][xx];
-        if (cell === 'wall') {
-          let x3 = x + DX[ii] * 2;
-          let y3 = y + DY[ii] * 2;
-          if (cells[y3] && cells[y3][x3] === 'floor' && !reachable[y3][x3]) {
-            neighbors.push([x3, y3]);
+    let neighbors: JSVec2[] = [];
+    function floodfill(startx: number, starty: number): void {
+      let todo = [startx, starty];
+      function push(xx: number, yy: number): void {
+        todo.push(xx, yy);
+        reachable[yy][xx] = true;
+      }
+      push(startx, starty);
+      let todoidx = 0;
+      while (todoidx < todo.length) {
+        let x = todo[todoidx++];
+        let y = todo[todoidx++];
+        for (let ii = 0; ii < DX.length; ++ii) {
+          let xx = x + DX[ii];
+          let yy = y + DY[ii];
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) {
+            continue;
           }
-          continue;
+          if (reachable[yy][xx]) {
+            continue;
+          }
+          let cell = cells[yy][xx];
+          if (cell === 'wall') {
+            let x3 = x + DX[ii] * 2;
+            let y3 = y + DY[ii] * 2;
+            if (cells[y3] && cells[y3][x3] === 'floor' && !reachable[y3][x3]) {
+              neighbors.push([x3, y3]);
+            }
+            continue;
+          }
+          push(xx, yy);
         }
-        push(xx, yy);
       }
     }
-  }
-  floodfill(level.entrance[0], level.entrance[1]);
-  while (true) {
-    // flood-fill reachability
-    // pick a random unreachable neighbor and poke a hole
-    let targetx = 0;
-    let targety = 0;
-    let hastarget = false;
+    floodfill(level.entrance[0], level.entrance[1]);
     while (true) {
-      if (!neighbors.length) {
+      // flood-fill reachability
+      // pick a random unreachable neighbor and poke a hole
+      let targetx = 0;
+      let targety = 0;
+      let hastarget = false;
+      while (true) {
+        if (!neighbors.length) {
+          break;
+        }
+        let idx = rand.range(neighbors.length);
+        [targetx, targety] = neighbors[idx];
+        ridx(neighbors, idx);
+        if (!reachable[targety][targetx]) {
+          hastarget = true;
+          break;
+        }
+      }
+      if (!hastarget) {
         break;
       }
-      let idx = rand.range(neighbors.length);
-      [targetx, targety] = neighbors[idx];
-      ridx(neighbors, idx);
-      if (!reachable[targety][targetx]) {
-        hastarget = true;
-        break;
-      }
-    }
-    if (!hastarget) {
-      break;
-    }
-    // add a door
-    let order = [0, 1, 2, 3];
-    while (order.length) {
-      let idx = rand.range(order.length);
-      let dir = order[idx];
-      ridx(order, idx);
-      let x2 = targetx + DX[dir];
-      let y2 = targety + DY[dir];
-      let x3 = targetx + DX[dir] * 2;
-      let y3 = targety + DY[dir] * 2;
-      if (reachable[y3] && reachable[y3][x3]) {
-        assert(cells[y2][x2] === 'wall');
-        door(x2, y2);
-        floodfill(x2, y2);
-        break;
+      // add a door
+      let order = [0, 1, 2, 3];
+      while (order.length) {
+        let idx = rand.range(order.length);
+        let dir = order[idx];
+        ridx(order, idx);
+        let x2 = targetx + DX[dir];
+        let y2 = targety + DY[dir];
+        let x3 = targetx + DX[dir] * 2;
+        let y3 = targety + DY[dir] * 2;
+        if (reachable[y3] && reachable[y3][x3]) {
+          assert(cells[y2][x2] === 'wall');
+          door(x2, y2);
+          floodfill(x2, y2);
+          break;
+        }
       }
     }
   }
+  addDoorsToUnreachable();
+  addOneDoorPerRoom();
+
   function countDoors(room: JSVec4): number {
     let r = 0;
     for (let yy = -1; yy <= room[3]; ++yy) {
@@ -831,7 +848,7 @@ function genLevel(def: HeistDef): void {
     }
   }
 
-  if (DEBUG) {
+  if (DEBUG && false) {
     chests.push({
       pos: [level.entrance[0] + 3, level.entrance[1]],
       type: 'simple',
@@ -855,6 +872,9 @@ function genLevel(def: HeistDef): void {
   cellsToTiles(level);
 }
 
+export function doubleLockBonus(): number {
+  return level.def.double_bonus;
+}
 
 function lineCircleAdvCollide(x0: number, y0: number, x1: number, y1: number, cx: number, cy: number, radius: number): {
   ret: boolean;
@@ -1031,6 +1051,12 @@ function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
           pos: [xx, yy],
           type: 'storyevent1',
         });
+      } else if (tile === 'event-2') {
+        tiles[yy][xx] = 'floor-1';
+        level.events.push({
+          pos: [xx, yy],
+          type: 'storyevent2',
+        });
       } else if (tile === 'gate') {
         level.events.push({
           pos: [xx, yy],
@@ -1039,6 +1065,17 @@ function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
       }
     }
   }
+}
+
+export function playerFloater(msg: string): void {
+  heist_state.floaters.push({
+    t: 0,
+    pos: [
+      heist_state.pos[0] - 0.5,
+      heist_state.pos[1],
+    ],
+    msg,
+  });
 }
 
 let end_of_frame_load: null | keyof typeof LEVELS;
@@ -1087,9 +1124,17 @@ function doEvent(event: MapEvent): void {
         startUnlocking(6, null);
       }
       break;
+    case 'storyevent2': {
+      let player_state = playerState();
+      if (player_state.goal !== 'intro0') {
+        break;
+      }
+      player_state.goal = 'intro1';
+      dialog('intro');
+    } break;
     case 'storyevent1': {
       let player_state = playerState();
-      if (player_state.goal !== 'intro') {
+      if (player_state.goal !== 'intro1') {
         break;
       }
       anim = animationSequencerCreate();
@@ -1104,14 +1149,7 @@ function doEvent(event: MapEvent): void {
         });
       });
       anim.add(500, 0, (progress) => {
-        heist_state.floaters.push({
-          t: 0,
-          pos: [
-            heist_state.pos[0] - 0.5,
-            heist_state.pos[1],
-          ],
-          msg: '[c=2]#$!?',
-        });
+        playerFloater('[c=2]#$!?');
       });
       anim.add(1000, 0, (progress) => {
         dialog('mugged');
@@ -1427,11 +1465,7 @@ function doMotion(dt: number, is_town: boolean): void {
   if (!unopened_chests && !heist_state.did_thats_all && !is_town && !level.jailbreak && dt) {
     heist_state.did_thats_all = true;
     playSound('thatsall');
-    heist_state.floaters.push({
-      t: 0,
-      pos: [pos[0] - 0.5, pos[1]],
-      msg: '[c=3]THAT\'S EVERYTHING!',
-    });
+    playerFloater('[c=3]THAT\'S EVERYTHING!');
   }
 
   let { events } = level;
@@ -1756,10 +1790,10 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
       z: z - 1,
     }, autoAtlas('gfx', 'box'));
     let { loot } = heist_state;
-    let eff_bonus = blend('loot', loot);
+    let eff_loot = blend('loot', loot);
     markdownAuto({
       x: x + 2, y: y + 2, z: z + 1, w, h,
-      text: `[c=2]LOOT: [c=3]${round(eff_bonus)}G[/c][/c]`,
+      text: `[c=2]LOOT: [c=3]${round(eff_loot)}G[/c][/c]`,
     });
   }
 
@@ -1865,14 +1899,7 @@ export function doTimer(dt: number): void {
         dir: 1,
         last_floor_was_hallway: true,
       });
-      heist_state.floaters.push({
-        t: 0,
-        pos: [
-          heist_state.pos[0] - 0.5,
-          heist_state.pos[1],
-        ],
-        msg: '[c=2]NEW GUARD!',
-      });
+      playerFloater('[c=2]NEW GUARD!');
     }
     if (guards.length < def.guards_total) {
       let guard_spawn_timer = (timer - def.alert_time) % time_per_guard;
