@@ -532,6 +532,9 @@ export function dialogRegister(data: Record<string, DialogFunc>): void {
   merge(DIALOGS, data);
 }
 
+export function dialogExists(id: string): boolean {
+  return Boolean(DIALOGS[id]);
+}
 
 export function dialog(id: string, param?: string): void {
   let dlg = DIALOGS[id];

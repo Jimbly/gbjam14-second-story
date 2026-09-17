@@ -19,7 +19,8 @@ import {
   dialogPush,
   dialogRegister,
 } from './dialog_system';
-import { GOAL_LIST, playerState, startHeist } from './main';
+import { GOAL_LIST, playerState, saveGame, startHeist } from './main';
+import { titleInit } from './title';
 
 const INFORMANT = 'ALLEY DWELLER';
 
@@ -50,7 +51,7 @@ dialogRegister({
 });
 
 dialogRegister({
-  choose: function (param: string) {
+  startheist: function (param: string) {
     let goal = playerState().goal;
     dialogPush({
       text: 'Where should I do some "second story work"?',
@@ -315,5 +316,28 @@ dialogRegister({
     dialogLine(HERO, 'ONE MIIIIIIILION DOLLARS!',
       dialogLine.bind(null, HERO, 'That joke never gets old.')
     );
+  },
+  townexit: function () {
+    let { goal } = playerState();
+    if (goal === 'intro') {
+      dialogLine(HERO, 'What a peaceful looking town, this will be great for my retirement.  I should take a look around.');
+    } else if (goal === 'outtahere') {
+      saveGame();
+      dialogLine(HERO, 'Okay, enough of this town, I guess to really retire I\'m going to have to start a goat farm in the country...',
+        function () {
+          dialogPush({
+            text: 'CONGRATULATIONS! YOU WIN!\n\n' +
+              'Thanks for playing!',
+            buttons: [{
+              label: 'EXIT TO MAIN MENU',
+              cb: function () {
+                titleInit();
+              }
+            }],
+          });
+        });
+    } else {
+      dialogLine(HERO, 'I can\'t leave now, I\'ve got unfinished business.');
+    }
   },
 });

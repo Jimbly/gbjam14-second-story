@@ -644,7 +644,7 @@ function startTown(initial: boolean): void {
   initTownMap(initial);
   player_state.mode = 'town';
   dialogReset();
-  // dialog('choose');
+  // dialog('startheist');
 }
 
 export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null): void {

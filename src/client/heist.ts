@@ -30,7 +30,7 @@ import {
 import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
 import { HERO } from './dialog_data';
-import { dialog, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
+import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import {
   getPalette,
@@ -281,6 +281,7 @@ const TILE_Z: Rec<string, number> = {
   'wall-h': Z.WALLS,
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
+  'gate': Z.DOORS,
   'door-v': Z.DOORS,
   'door-h': Z.DOORS,
   'floor-1': Z.BACKGROUND,
@@ -344,6 +345,7 @@ function tilesToCells(level: Level): void {
           break;
         case 'door-v':
         case 'door-h':
+        case 'gate':
           row.push('door');
           break;
         case 'npc':
@@ -394,6 +396,7 @@ const TILED_TILESET: Rec<number, string> = {
   17: 'guard-right',
   18: 'guard-left',
   20: 'event-1',
+  21: 'gate',
 };
 function levelFromJSON(json: DataObject): Level {
   let level = new Level(TOWNDEF);
@@ -980,6 +983,11 @@ function initMap(name: string, json: DataObject): void {
           pos: [xx, yy],
           type: 'storyevent1',
         });
+      } else if (tile === 'gate') {
+        level.events.push({
+          pos: [xx, yy],
+          type: 'townexit',
+        });
       }
     }
   }
@@ -1025,12 +1033,6 @@ function doEvent(event: MapEvent): void {
       }
       queueTransitionDither();
       break;
-    case 'startheist':
-      dialog('choose');
-      break;
-    case 'shop':
-      dialog('shop');
-      break;
     case 'storyevent1': {
       let player_state = playerState();
       if (player_state.goal !== 'intro') {
@@ -1063,14 +1065,15 @@ function doEvent(event: MapEvent): void {
       player_state.goal = 'mugged';
 
     } break;
-    case 'informant':
-      dialog('informant');
-      break;
     default:
-      dialogPush({
-        text: `UNKNOWN EVENT "${event.type}"`,
-        buttons: [{ label: 'OK' }],
-      });
+      if (dialogExists(event.type)) {
+        dialog(event.type);
+      } else {
+        dialogPush({
+          text: `UNKNOWN EVENT "${event.type}"`,
+          buttons: [{ label: 'OK' }],
+        });
+      }
   }
 }
 
