@@ -852,7 +852,7 @@ export function main(): void {
 
   // Perfect sizes for pixely modes
   scaleSizes(13 / 32);
-  setFontHeight(8);
+  setFontHeight(9);
 
   init();
 
