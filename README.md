@@ -3,7 +3,6 @@ GBJam14 - "Old Gold"
 
 Town flow
 * Heist
-  * do not allow doing medium tier until you've done a 2 of the previous tier "Maybe I should do 2 easy jobs first"
   * guards spend too much time in main hallway on hard difficulty - bias away from that?
 * Prison flow and escape?
 

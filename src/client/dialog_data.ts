@@ -21,6 +21,7 @@ import {
 } from './dialog_system';
 import { GOAL_LIST, playerState, saveGame, startHeist } from './main';
 import { titleInit } from './title';
+import { plural } from 'glov/common/util';
 
 const INFORMANT = 'ALLEY DWELLER';
 
@@ -52,7 +53,9 @@ dialogRegister({
 
 dialogRegister({
   startheist: function (param: string) {
-    let goal = playerState().goal;
+    let { goal, heists } = playerState();
+    let h0 = heists[0] || 0;
+    let h1 = heists[1] || 0;
     dialogPush({
       text: 'Where should I do some "second story work"?',
       buttons: [{
@@ -111,6 +114,12 @@ dialogRegister({
                 },
               }],
             });
+          } else if (h0 < 2) {
+            dialogLine(HERO, 'Hmm, I don\'t think I\'m quite ready for that yet, ' +
+              `Maybe I should do ${2 - h0} more easier ${plural(2 - h0, 'heist')} and buy some more lockpicks before exploring here.`,
+            function () {
+              dialog('startheist');
+            });
           } else {
             startHeist(1);
           }
@@ -148,6 +157,12 @@ dialogRegister({
                   startHeist(2);
                 },
               }],
+            });
+          } else if (h1 < 2) {
+            dialogLine(HERO, 'Hmm, I don\'t think I\'m quite ready for that yet, ' +
+              `Maybe I should do ${2 - h1} more easier ${plural(2 - h1, 'heist')} and buy some more lockpicks before exploring here.`,
+            function () {
+              dialog('startheist');
             });
           } else {
             startHeist(2);

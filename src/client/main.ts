@@ -257,6 +257,7 @@ class PlayerState {
   mode: 'status' | 'unlock' | 'heist' | 'town' = 'status';
   is_flipped: boolean[] = [];
   picks: number[] = [];
+  heists: number[] = [];
 }
 let player_state = new PlayerState();
 
@@ -265,6 +266,7 @@ export function saveGame(): void {
     money: player_state.money,
     num_picks: player_state.num_picks,
     goal: player_state.goal,
+    heists: player_state.heists,
   });
 }
 
@@ -647,10 +649,12 @@ function startTown(initial: boolean): void {
   // dialog('startheist');
 }
 
+let last_heist_index = 0;
 export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null): void {
   if (success && !loot) {
     // no sound, had a UI action leading up to this
   } else if (success) {
+    player_state.heists[last_heist_index] = (player_state.heists[last_heist_index] || 0) + 1;
     if (new_goal) {
       player_state.goal = new_goal;
     }
@@ -725,6 +729,7 @@ export function startHeist(index: number): void {
   queueTransitionDitherUpDown();
   dialogReset();
   player_state.mode = 'heist';
+  last_heist_index = index;
   stateHeistInit(index);
 }
 
@@ -784,6 +789,7 @@ type SavedGame = {
   money: number;
   num_picks: number;
   goal: GoalID;
+  heists: number[];
   // mode: PlayerState['mode'];
 };
 
@@ -809,6 +815,7 @@ export function loadGame(): void {
   player_state.money = data.money;
   player_state.num_picks = data.num_picks;
   player_state.goal = data.goal;
+  player_state.heists = data.heists || [];
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
