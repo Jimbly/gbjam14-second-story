@@ -50,7 +50,7 @@ import {
 } from 'glov/client/ui';
 import { Rec } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { vec2, Vec4, vec4 } from 'glov/common/vmath';
+import { v3copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
@@ -66,16 +66,15 @@ import {
   doTimer,
   doubleLockBonus,
   finishUnlocking,
-  heistStarted,
   initTownMap,
   isJailbreak,
   stateHeist,
   stateHeistInit,
 } from './heist';
+import { tickMusic } from './music';
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
-import { tickMusic } from './music';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -812,16 +811,18 @@ export function topOfFrame(is_title: boolean): void {
   }
 
   tickMusic('music');
-
   camera2d.setAspectFixed(game_width, game_height);
-  let pal = last_pal && palette_lock ? last_pal :
+  let pal: Vec4[] = last_pal && palette_lock ? last_pal :
     color_pal_idx_override !== -1 ? COLOR_PALETTES[color_pal_idx_override] :
     settingsGet('palette') ? PALETTE_GB :
-    is_title ? PALETTE_DARK :
+    is_title ? PALETTE_GB :
     player_state.mode === 'town' ? curMap() === 'town' ? COLOR_PALETTES[2] : COLOR_PALETTES[1] :
     last_heist_index >= 3 ? COLOR_PALETTES[3] :
     PALETTE_DARK;
     // heistStarted() || player_state.mode === 'unlock' ? PALETTE_DARK : COLOR_PALETTES[4];
+
+  v3copy(engine.border_clear_color, pal[0]);
+
   last_pal = pal;
   effectsQueue(Z.REPALETTE, function () {
     applyCopy({
@@ -1003,10 +1004,10 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    loadGame();
+    // loadGame();
 
-    engine.setState(statePlay);
-    startHeist(6);
+    // engine.setState(statePlay);
+    // startHeist(6);
     // startTown(false, false);
     // startUnlocking(12, null);
     // dialog('informant');

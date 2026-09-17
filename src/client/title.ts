@@ -1,6 +1,7 @@
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
+import { autoAtlas } from 'glov/client/autoatlas';
 import { DEBUG, setState } from 'glov/client/engine';
-import { ALIGN, fontStyle } from 'glov/client/font';
+import { ALIGN } from 'glov/client/font';
 import { eatAllInput, mouseDownAnywhere } from 'glov/client/input';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
@@ -75,7 +76,7 @@ function stateTitle(dt: number): void {
   let W = game_width;
   let H = game_height;
 
-  if (title_anim && (mouseDownAnywhere() || actionEdge('accept'))) {
+  if (title_anim && (mouseDownAnywhere() || actionEdge('accept') || DEBUG)) {
     title_anim.update(Infinity);
     title_anim = null;
   }
@@ -89,18 +90,12 @@ function stateTitle(dt: number): void {
 
   let y = 30;
 
-  const style_title = fontStyle(null, {
-    color: palette_font[3],
-    outline_color: palette_font[1],
-    outline_width: 2.5,
-  });
-
-  font.draw({
-    style: style_title,
-    alpha: title_alpha.title,
-    x: 0, y, w: W, align: ALIGN.HCENTER | ALIGN.HWRAP,
-    size: text_height * 2,
-    text: 'SECOND\n  STORY',
+  autoAtlas('gfx', 'title').draw({
+    x: (game_width - 128) / 2,
+    y: -8,
+    w: 128,
+    h: 80,
+    color: [title_alpha.sub, title_alpha.sub, title_alpha.sub, 1],
   });
 
   font.draw({

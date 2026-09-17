@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* game logo on title
 * better sound when getting a double-pick match (just higher pitch)
 
 Pre-prelease

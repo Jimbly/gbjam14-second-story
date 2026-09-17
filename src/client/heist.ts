@@ -1159,6 +1159,7 @@ function doEvent(event: MapEvent): void {
       });
       anim.add(500, 0, (progress) => {
         playerFloater('[c=2]#$!?');
+        playSound('fail');
       });
       anim.add(1000, 0, (progress) => {
         dialog('mugged');
