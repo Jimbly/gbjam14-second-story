@@ -183,6 +183,23 @@ const HEISTS = [{
   intro_dialog: 'So this is where Ramirrors\nkeeps his treasure...',
   reward_dialog: 'special3',
   reward_goal: 'outtahere',
+}, {
+  // debug
+  guards_initial: 2,
+  guards_total: 6,
+  w: 10,
+  h: 10,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 0],
+  room_max_area: 8*6,
+  heist_time: 61000,
+  alert_time: 60000,
+  chests: 1,
+  chests_locked: 1,
+  chest_value_simple: 100,
+  chest_value_locked: 100,
+  tumblers: [2, 0], // [base + range*2]
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -235,6 +252,7 @@ class Level {
   def: HeistDef;
   w: number;
   h: number;
+  jailbreak = false;
   constructor(def: HeistDef) {
     this.def = def;
     this.w = def.w;
@@ -289,6 +307,7 @@ const TILE_Z: Rec<string, number> = {
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
   'gate': Z.DOORS,
+  'celldoor': Z.DOORS,
   'door-v': Z.DOORS,
   'door-h': Z.DOORS,
   'floor-1': Z.BACKGROUND,
@@ -355,6 +374,13 @@ function tilesToCells(level: Level): void {
         case 'gate':
           row.push('door');
           break;
+        case 'celldoor':
+          if (level.jailbreak) {
+            row.push('door');
+          } else {
+            row.push('wall');
+          }
+          break;
         case 'npc':
         case 'guard-left':
         case 'guard-right':
@@ -404,11 +430,13 @@ const TILED_TILESET: Rec<number, string> = {
   18: 'guard-left',
   20: 'event-1',
   21: 'gate',
+  22: 'celldoor',
 };
-function levelFromJSON(json: DataObject): Level {
+function levelFromJSON(json: DataObject, jailbreak: boolean): Level {
   let level = new Level(TOWNDEF);
   level.w = json.width as number;
   level.h = json.height as number;
+  level.jailbreak = jailbreak;
   let layers = json.layers as TiledLayer[];
   assert(layers.length === 1);
   let layer = layers[0];
@@ -498,11 +526,11 @@ function genLevel(def: HeistDef): void {
     cells[y][x] = 'door';
   }
 
-  let hpath = floor(h * 0.35) + rand.range(floor(h * 0.3));
+  let hpath = clamp(floor(h * 0.35) + rand.range(floor(h * 0.3)), 3, h - 5);
   level.entrance = [0, hpath];
   carve(1, hpath, w - 2, 2);
   level.hpath = [hpath, hpath + 2];
-  let vpath = floor(w * 0.4) + rand.range(floor(w * 0.3));
+  let vpath = clamp(floor(w * 0.4) + rand.range(floor(w * 0.3)), 3, w - 5);
   carve(vpath, 1, 2, h - 2);
   level.vpath = [hpath, hpath + 2];
   let exit: JSVec2 = [0,0];
@@ -719,7 +747,9 @@ function genLevel(def: HeistDef): void {
     let room = rooms[roomid];
     did_chests[roomid] = true;
     --desired_chests;
-    while (true) {
+    let retries = 0;
+    while (retries < 100) {
+      ++retries;
       let x = room[0] + rand.range(room[2]);
       let y = room[1] + rand.range(room[3]);
       if (!countDoors([x, y, 1, 1])) {
@@ -939,14 +969,16 @@ class HeistState {
   started = false;
   did_thats_all = false;
   found_special_reward = false;
+  did_cell_unlock = false;
 }
 
 let heist_state: HeistState;
 
 let cur_map: string;
-function initMap(name: string, json: DataObject): void {
+function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
+  let json = LEVELS[name];
   cur_map = name;
-  level = levelFromJSON(json);
+  level = levelFromJSON(json, jailbreak);
   let { tiles } = level;
   for (let yy = 0; yy < level.h; ++yy) {
     for (let xx = 0; xx < level.w; ++xx) {
@@ -975,6 +1007,11 @@ function initMap(name: string, json: DataObject): void {
             });
           }
         }
+      } else if (tile === 'celldoor') {
+        level.events.push({
+          pos: [xx, yy],
+          type: 'celldoor',
+        });
       } else if (tile === 'npc') {
         if (name === 'shop') {
           level.events.push({
@@ -1017,14 +1054,15 @@ function doEvent(event: MapEvent): void {
             label: 'Yes, leave',
             cb: function () {
               queueTransitionDitherUpDown(500);
-              leaveHeist(true, heist_state.loot, null);
+              leaveHeist(true, heist_state.loot, null, false);
             }
           }],
         });
       } else {
         queueTransitionDitherUpDown(500);
         leaveHeist(true, heist_state.loot,
-          heist_state.found_special_reward ? level.def.reward_goal as GoalID : null);
+          heist_state.found_special_reward ? level.def.reward_goal as GoalID : null,
+          false);
       }
       break;
     case 'shopenter':
@@ -1042,6 +1080,11 @@ function doEvent(event: MapEvent): void {
         end_of_frame_load = 'town';
       }
       queueTransitionDither();
+      break;
+    case 'celldoor':
+      if (!heist_state.did_cell_unlock) {
+        startUnlocking(6, null);
+      }
       break;
     case 'storyevent1': {
       let player_state = playerState();
@@ -1380,7 +1423,7 @@ function doMotion(dt: number, is_town: boolean): void {
   }
   heist_state.was_on_chest = on_chest;
 
-  if (!unopened_chests && !heist_state.did_thats_all && !is_town && dt) {
+  if (!unopened_chests && !heist_state.did_thats_all && !is_town && !level.jailbreak && dt) {
     heist_state.did_thats_all = true;
     playSound('thatsall');
     heist_state.floaters.push({
@@ -1723,8 +1766,18 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
   );
 }
 
+export function isJailbreak(): boolean {
+  return level && level.jailbreak;
+}
+
 export function finishUnlocking(success: boolean, bonus: number, partial_progress: number): void {
-  heist_state.floaters.length = 0;
+  if (level.jailbreak) {
+    if (success) {
+      level.cells[1][4] = 'floor';
+      heist_state.did_cell_unlock = true;
+    }
+    return;
+  }
   let chest = level.chests[heist_state.unlocking];
   if (success) {
     chest.opened = true;
@@ -1751,6 +1804,9 @@ export function finishUnlocking(success: boolean, bonus: number, partial_progres
 }
 
 export function doTimer(dt: number): void {
+  if (level.jailbreak) {
+    return;
+  }
   let x = 0;
   let y = 0;
   let h = 11;
@@ -1839,7 +1895,7 @@ export function doTimer(dt: number): void {
         label: 'At least I wasn\'t caught...',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0, null);
+          leaveHeist(false, 0, null, false);
         }
       }],
     });
@@ -1977,13 +2033,12 @@ function doFloaters(dt: number): void {
     heist_state.loot = 0;
     dialogPush({
       text: 'The guards take everything you\'ve found and lock you up.\n\n' +
-        'Luckily you\'re better at hiding your lockpicks than they are at searching,' +
-        ' so in the night you escape and get back to your task...',
+        'Luckily you\'re better at hiding your lockpicks than they are at searching...',
       buttons: [{
-        label: 'Phew, that was close...',
+        label: '',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0, null);
+          leaveHeist(false, 0, null, true);
         }
       }],
     });
@@ -2052,15 +2107,14 @@ export function stateHeist(dt: number, is_town: boolean):void {
   }
 
   if (end_of_frame_load) {
-    initMap(end_of_frame_load, LEVELS[end_of_frame_load]);
+    initMap(end_of_frame_load, false);
     end_of_frame_load = null;
   }
 }
 
-export function initTownMap(initial: boolean): void {
+export function initTownMap(initial: boolean, jailbreak: boolean): void {
   palette = getPalette();
-  // eslint-disable-next-line n/global-require
-  initMap('town', require('./town.json'));
+  initMap('town', false);
   heist_state = new HeistState();
   if (initial) {
     heist_state.pos = [
@@ -2077,4 +2131,15 @@ export function initTownMap(initial: boolean): void {
   }
   heist_state.timer = heist_state.time_max = 0;
   anim = null;
+
+  if (jailbreak) {
+    initMap('jail', true);
+    heist_state.pos = [
+      1.5,
+      2.5,
+    ];
+    heist_state.dir = 1;
+    level.cells[1][4] = 'wall'; // block exiting
+    level.cells[3][4] = 'wall'; // block visiting guards
+  }
 }

@@ -12,6 +12,7 @@ import {
   uiTextHeight,
 } from 'glov/client/ui';
 import { VoidFunc, WithRequired } from 'glov/common/types';
+import { plural } from 'glov/common/util';
 import {
   dialog,
   DialogButton,
@@ -21,7 +22,6 @@ import {
 } from './dialog_system';
 import { GOAL_LIST, playerState, saveGame, startHeist } from './main';
 import { titleInit } from './title';
-import { plural } from 'glov/common/util';
 
 const INFORMANT = 'ALLEY DWELLER';
 
@@ -34,7 +34,7 @@ export function signWithName(name: string, message: string, transient_long?: boo
   });
 }
 
-function dialogLine(name: string, message: string, next?: VoidFunc): void {
+export function dialogLine(name: string, message: string, next?: VoidFunc): void {
   dialogPush({
     name,
     text: message,

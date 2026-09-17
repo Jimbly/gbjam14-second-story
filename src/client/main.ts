@@ -58,7 +58,7 @@ import { blend } from './blend';
 import './dialog_data'; // side effects
 import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { doHeistView, doTimer, finishUnlocking, initTownMap, stateHeist, stateHeistInit } from './heist';
+import { doHeistView, doTimer, finishUnlocking, initTownMap, isJailbreak, stateHeist, stateHeistInit } from './heist';
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
@@ -586,6 +586,9 @@ function drawPicks(): void {
 }
 
 function drawPickingHUD(dt: number): void {
+  if (isJailbreak()) {
+    return;
+  }
   let x = 0;
   let y = 0;
   let h = 11;
@@ -639,18 +642,22 @@ function leavePicking(): void {
     playSound('fail');
   }
   finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus, pick_state.progress);
-  player_state.mode = 'heist';
+  if (isJailbreak()) {
+    player_state.mode = 'town';
+  } else {
+    player_state.mode = 'heist';
+  }
 }
 
-function startTown(initial: boolean): void {
-  initTownMap(initial);
+function startTown(initial: boolean, jailbreak: boolean): void {
+  initTownMap(initial, jailbreak);
   player_state.mode = 'town';
   dialogReset();
   // dialog('startheist');
 }
 
 let last_heist_index = 0;
-export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null): void {
+export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null, jailbreak: boolean): void {
   if (success && !loot) {
     // no sound, had a UI action leading up to this
   } else if (success) {
@@ -663,7 +670,7 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     playSound('fail');
   }
   player_state.money += loot;
-  startTown(false);
+  startTown(false, jailbreak);
   saveGame();
 }
 
@@ -801,7 +808,7 @@ export function newGameInit(): void {
   player_state = new PlayerState();
   dialogReset();
   engine.setState(statePlay);
-  startTown(true);
+  startTown(true, false);
 }
 
 export function playerState(): PlayerState {
@@ -819,7 +826,7 @@ export function loadGame(): void {
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
-  startTown(player_state.goal === 'intro');
+  startTown(player_state.goal === 'intro', false);
 }
 
 export function canLoad(): boolean {
@@ -887,7 +894,8 @@ export function main(): void {
     loadGame();
 
     engine.setState(statePlay);
-    startHeist(2);
+    // startHeist(6);
+    startTown(false, true);
     // startUnlocking(12, null);
   }
 }

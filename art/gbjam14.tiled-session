@@ -22,6 +22,14 @@
                 "x": 151.45454545454544,
                 "y": 73.90909090909092
             }
+        },
+        "town.tmx": {
+            "scale": 8.007142857142856,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 126.01248884924176,
+                "y": 111.96253345227477
+            }
         }
     },
     "last.exportedFilePath": "C:/Code/glovjs/gbjam14/src/client",

@@ -1,14 +1,6 @@
 GBJam14 - "Old Gold"
 ============================
 
-Town flow
-* Prison flow and escape?
-
-Lockpicking
-* Start with just 2 picks
-* probably no breaking of picks, it just punishes people who are learning? maybe only in hard zone?
-
-
 TODO
 * exclamation stays above guards' heads; changes to ? and then fades
 * new dialog borders
@@ -27,7 +19,7 @@ Stretch
 * GBJam logo
 * change most informant dialogs to signWithName (add position check logic)
 * add custom namer renderer
-* breaking and repairing lockpicks
+* breaking (only in med/hard?) and repairing lockpicks
 * additional time upgrade?
 * floors are actually black when neither you nor guard is nearby?
 * pulsate guard's light (inner radius, especially)
