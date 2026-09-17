@@ -56,7 +56,7 @@ dialogRegister({
     dialogPush({
       text: 'Where should I do some "second story work"?',
       buttons: [{
-        label: 'SLUMS',
+        label: 'SLUMS *',
         cb: function () {
           if (goal === 'search1') {
             dialogPush({
@@ -78,7 +78,7 @@ dialogRegister({
           }
         }
       }, {
-        label: 'MERCHANT QUARTER',
+        label: 'MERCHANT QUARTER **',
         cb: function () {
           if (goal === 'find2b' || goal === 'buytreat' || goal === 'search2') {
             dialogPush({
@@ -116,7 +116,7 @@ dialogRegister({
           }
         }
       }, {
-        label: 'OLD MONEY NEIGHBORHOOD',
+        label: 'OLD MONEY ROW ***',
         cb: function () {
           if (goal === 'find3b' || goal === 'find3c' || goal === 'buygift' || goal === 'search3') {
             dialogPush({
@@ -281,13 +281,13 @@ dialogRegister({
       dialogLine(INFORMANT, 'Vicious guard animals? Check the shop, they might have something to help.');
     } else if (player_state.goal === 'find3a') {
       player_state.goal = 'find3b';
-      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace in the Old Money neighborhood.',
+      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.',
         dialogLine.bind(null, HERO, 'Thanks, here\'s 400G',
           dialogLine.bind(null, INFORMANT, 'Ah, no worries, I\'ve still got your last gift here.')
         )
       );
     } else if (player_state.goal === 'find3b') {
-      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace in the Old Money neighborhood.');
+      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.');
     } else if (player_state.goal === 'find3c') {
       player_state.goal = 'buygift';
       dialogLine(INFORMANT, 'Ramirrors Palace private security? They\'re a tough bunch, but I hear one of them lost a month\'s wages and is in desperate need of a gift to sooth his wife...',
