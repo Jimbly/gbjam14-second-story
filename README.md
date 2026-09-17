@@ -2,8 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 Town flow
-* Heist
-  * guards spend too much time in main hallway on hard difficulty - bias away from that?
 * Prison flow and escape?
 
 Lockpicking

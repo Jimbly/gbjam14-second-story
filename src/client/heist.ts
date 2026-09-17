@@ -227,6 +227,7 @@ type Guard = {
   bit?: boolean;
   chasing?: boolean;
   goal_was_chasing?: boolean;
+  last_floor_was_hallway: boolean;
   dir: number;
 };
 type Cell = 'wall' | 'floor' | 'door' | 'unknown';
@@ -259,10 +260,16 @@ class Level {
     return chars.map((row) => row.join('')).join('\n');
   }
   entrance: JSVec2 = [0,0];
+  hpath: JSVec2 = [0,0];
+  vpath: JSVec2 = [0,0];
   events: MapEvent[] = [];
   chests: Chest[] = [];
   guards: Guard[] = [];
+  isHallway(x: number, y: number): boolean {
+    return x >= this.vpath[0] && x < this.vpath[1] || y >= this.hpath[0] && y < this.vpath[1];
+  }
 }
+
 
 Z.BACKGROUND = 1;
 Z.WALLS = 5;
@@ -494,8 +501,10 @@ function genLevel(def: HeistDef): void {
   let hpath = floor(h * 0.35) + rand.range(floor(h * 0.3));
   level.entrance = [0, hpath];
   carve(1, hpath, w - 2, 2);
+  level.hpath = [hpath, hpath + 2];
   let vpath = floor(w * 0.4) + rand.range(floor(w * 0.3));
   carve(vpath, 1, 2, h - 2);
+  level.vpath = [hpath, hpath + 2];
   let exit: JSVec2 = [0,0];
   let exit_pos = rand.range(3);
   if (def.fixed_seed === 19) {
@@ -785,6 +794,7 @@ function genLevel(def: HeistDef): void {
         target: null,
         pause: 0,
         dir: 0,
+        last_floor_was_hallway: false,
       });
       break;
     }
@@ -1451,7 +1461,20 @@ function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
       options.push({
         target: [xx, yy] as JSVec2,
         goal: chooseRandomFloorSub(xx, yy),
+        is_hallway: level.isHallway(xx, yy),
       });
+    }
+  }
+  if (guard.last_floor_was_hallway) {
+    let non_hallway = options.filter((a) => !a.is_hallway);
+    if (non_hallway.length) {
+      options = non_hallway;
+    }
+  } else if (0) {
+    // causes them to always walk out into a hallway when they hit a hallway door, but hallways get too crowded?
+    let hallway_opts = options.filter((a) => a.is_hallway);
+    if (hallway_opts.length) {
+      options = hallway_opts;
     }
   }
   let idx = randInt(options.length);
@@ -1462,6 +1485,7 @@ function chooseRandomFloor(guard: Guard, x0: number, y0: number): void {
   ];
   guard.goal = opt.goal;
   guard.goal_was_chasing = false;
+  guard.last_floor_was_hallway = opt.is_hallway;
   updateGuardDir(guard);
 }
 function chooseRandomDoor(guard: Guard, x0: number, y0: number): void {
@@ -1779,6 +1803,7 @@ export function doTimer(dt: number): void {
         goal: null,
         pause: 0,
         dir: 1,
+        last_floor_was_hallway: true,
       });
       heist_state.floaters.push({
         t: 0,
