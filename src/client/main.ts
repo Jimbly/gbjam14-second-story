@@ -75,6 +75,7 @@ import {
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
+import { tickMusic } from './music';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -809,6 +810,9 @@ export function topOfFrame(is_title: boolean): void {
       color_pal_idx_override = (color_pal_idx_override + 1) % COLOR_PALETTES.length;
     }
   }
+
+  tickMusic('music');
+
   camera2d.setAspectFixed(game_width, game_height);
   let pal = last_pal && palette_lock ? last_pal :
     color_pal_idx_override !== -1 ? COLOR_PALETTES[color_pal_idx_override] :

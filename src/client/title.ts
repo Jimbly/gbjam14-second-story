@@ -104,12 +104,12 @@ function stateTitle(dt: number): void {
   });
 
   font.draw({
-    color: palette_font[3],
+    color: palette_font[1],
     alpha: title_alpha.sub,
     x: 0,
-    y: H - text_height * 2 - 3,
+    y: H - text_height * 3 - 3,
     w: W, align: ALIGN.HCENTER | ALIGN.HWRAP,
-    text: 'By Jimb Esser\nfor Gameboy Jam 14',
+    text: 'By Jimb Esser\nand CollectorChaos\nfor Gameboy Jam 14',
   });
 
   const BUTTON_H = 8;
