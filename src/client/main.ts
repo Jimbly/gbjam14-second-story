@@ -894,8 +894,8 @@ export function main(): void {
     loadGame();
 
     engine.setState(statePlay);
-    // startHeist(6);
-    startTown(false, true);
+    startHeist(6);
+    // startTown(false, true);
     // startUnlocking(12, null);
   }
 }

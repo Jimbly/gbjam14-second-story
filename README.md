@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* exclamation stays above guards' heads; changes to ? and then fades
 * new dialog borders
 * scale up bonus, especially double, for later heists
 * intro: https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231

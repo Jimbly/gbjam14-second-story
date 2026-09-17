@@ -3,7 +3,7 @@ import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animat
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { DEBUG } from 'glov/client/engine';
-import { ALIGN } from 'glov/client/font';
+import { ALIGN, fontStyle } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { sound3DListener, soundPlay } from 'glov/client/sound';
@@ -186,14 +186,14 @@ const HEISTS = [{
 }, {
   // debug
   guards_initial: 2,
-  guards_total: 6,
-  w: 10,
-  h: 10,
+  guards_total: 3,
+  w: 15,
+  h: 15,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 0],
   room_max_area: 8*6,
-  heist_time: 61000,
+  heist_time: 120000,
   alert_time: 60000,
   chests: 1,
   chests_locked: 1,
@@ -243,6 +243,7 @@ type Guard = {
   pause: number;
   bit?: boolean;
   chasing?: boolean;
+  was_chasing_timer?: number;
   goal_was_chasing?: boolean;
   last_floor_was_hallway: boolean;
   dir: number;
@@ -1643,6 +1644,9 @@ function doGuards(dt: number): void {
       }
       if (guard.chasing !== was_chasing) {
         playSound(guard.chasing ? 'guard_chase' : 'guard_forget');
+        if (!guard.chasing) {
+          guard.was_chasing_timer = 1000;
+        }
       }
     }
     if (!guard.goal) {
@@ -1902,7 +1906,7 @@ export function doTimer(dt: number): void {
   }
 }
 
-function doHeistViewSub(rect: UIBox): void {
+function doHeistViewSub(rect: UIBox, dt: number): void {
   let { pos } = heist_state;
 
   let hx = round(pos[0] * TILESIZE);
@@ -1963,6 +1967,33 @@ function doHeistViewSub(rect: UIBox): void {
       h: TILESIZE,
       z: Z.GUARDS,
     });
+    let float = '';
+    let float_fade = 1;
+    if (guard.chasing) {
+      float = '!!';
+    } else if (guard.was_chasing_timer) {
+      guard.was_chasing_timer -= dt;
+      if (guard.was_chasing_timer <= 0) {
+        guard.was_chasing_timer = 0;
+      } else {
+        float = '???';
+        float_fade = guard.was_chasing_timer / 1000;
+      }
+    }
+    if (float) {
+      uiGetFont().draw({
+        style: fontStyle(null, {
+          color: 0xFFFFFFff,
+          outline_width: 2,
+          outline_color: 0x000000ff,
+        }),
+        alpha: float_fade,
+        text: float,
+        x: guard.pos[0] * TILESIZE,
+        y: guard.pos[1] * TILESIZE - 7 - 9,
+        align: ALIGN.HCENTER,
+      });
+    }
     autoAtlas('gfx', 'light').draw({
       x: round(guard.pos[0] * TILESIZE) - 35,
       y: round(guard.pos[1] * TILESIZE) - 35,
@@ -2053,7 +2084,7 @@ export function doHeistView(dt: number, rect: UIBox): void {
   doMotion(0, false);
 
   spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
-  doHeistViewSub(rect);
+  doHeistViewSub(rect, dt);
   spriteClipPop();
 
   doFloaters(dt);
@@ -2087,7 +2118,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
     y: 0,
     w: game_width,
     h: game_height,
-  });
+  }, dt);
 
   if (anim) {
     if (!anim.update(dt)) {
