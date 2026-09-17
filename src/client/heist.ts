@@ -1722,7 +1722,7 @@ function doGuards(dt: number): void {
       }
       if (match === 2) {
         guard.target = null;
-        guard.pause = guard.chasing ? 33 : 200;
+        guard.pause = guard.chasing ? 50 : 200;
         if (abs(guard.goal[0] + 0.5 - guard.pos[0]) + abs(guard.goal[1] + 0.5 - guard.pos[1]) <= 0.1) {
           guard.goal = null;
           guard.goal_was_chasing = false;
