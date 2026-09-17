@@ -45,6 +45,7 @@ import {
   drawBox,
   scaleSizes,
   setFontHeight,
+  setPanelPixelScale,
 } from 'glov/client/ui';
 import { Rec } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
@@ -867,6 +868,7 @@ export function main(): void {
   // Perfect sizes for pixely modes
   scaleSizes(13 / 32);
   setFontHeight(9);
+  setPanelPixelScale(1);
 
   init();
 
@@ -894,8 +896,8 @@ export function main(): void {
     loadGame();
 
     engine.setState(statePlay);
-    startHeist(6);
-    // startTown(false, true);
+    // startHeist(6);
+    startTown(false, false);
     // startUnlocking(12, null);
   }
 }

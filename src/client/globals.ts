@@ -5,13 +5,13 @@ export const game_height = 144;
 export const FONT_HEIGHT = 8;
 
 export const DIALOG_VIEWPORT = {
-  x: 0,
+  x: 1,
   y: game_height / 2,
   z: Z.UI + 10,
-  w: game_width,
-  h: game_height / 2,
-  pad_lr: 3,
-  pad_top: 3,
+  w: game_width - 2,
+  h: game_height / 2 - 1,
+  pad_lr: 4,
+  pad_top: 5,
   pad_bottom: 3,
   pad_bottom_with_buttons: 3,
 };
