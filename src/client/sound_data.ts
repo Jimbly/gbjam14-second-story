@@ -22,6 +22,7 @@ export const SOUND_DATA = {
 
   pick_miss: 'pick_miss',
   pick_hit: 'pick_hit',
+  pick_hit_good: 'pick_hit_good',
 
   footstep: 'footstep',
   alert: 'alert',

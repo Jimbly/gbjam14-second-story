@@ -1892,6 +1892,10 @@ export function finishUnlocking(success: boolean, bonus: number, partial_progres
     return;
   }
   let chest = level.chests[heist_state.unlocking];
+  if (!chest) {
+    // debugging
+    return;
+  }
   if (success) {
     chest.opened = true;
     heist_state.started = true;

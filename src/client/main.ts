@@ -425,11 +425,11 @@ function drawLock(dt: number): number {
     if (p > 1) {
       pick_state.anim = null;
     } else {
-      let is_double = anim.pick > 4;
+      let is_double = anim.pick > 4 && anim.progress < lock.length - 1;
       let yanim = easeOut((p < 0.75 ? p / 0.75 : 1 - (p - 0.75) / 0.25), 2);
       if (p > 0.75 && !anim.played_sound) {
         anim.played_sound = true;
-        playSound(anim.failed ? 'pick_miss' : 'pick_hit');
+        playSound(anim.failed ? 'pick_miss' : is_double ? 'pick_hit_good' : 'pick_hit');
       }
       const ANIM_H = 30;
       let xoffs = 0;
@@ -563,19 +563,30 @@ function usePick(idx: number): void {
     let pickb = pick % 10;
     let picka = (pick - pickb) / 10;
     let only_one_target = progress === lock.length - 1;
-    if (picka === lock[progress]) {
-      if (pickb === lock[progress + 1]) {
-        pick_state.progress+=2;
-      } else if (only_one_target) {
+    if (only_one_target) {
+      if (pickb === lock[progress]) {
         pick_state.progress++;
       } else {
         failed = true;
       }
+      if (failed) {
+        bothfit = pickFits(pickb, lock[progress]);
+      }
     } else {
-      failed = true;
-    }
-    if (failed) {
-      bothfit = pickFits(picka, lock[progress]) && pickFits(pickb, lock[progress + 1]);
+      if (picka === lock[progress]) {
+        if (pickb === lock[progress + 1]) {
+          pick_state.progress+=2;
+        } else if (only_one_target) {
+          pick_state.progress++;
+        } else {
+          failed = true;
+        }
+      } else {
+        failed = true;
+      }
+      if (failed) {
+        bothfit = pickFits(picka, lock[progress]) && pickFits(pickb, lock[progress + 1]);
+      }
     }
     if (failed) {
       pick_state.bonus = max(0, pick_state.bonus - 10);
@@ -704,7 +715,8 @@ function drawPickingHUD(dt: number): void {
     bonus = pick_state.bonus;
   }
   let eff_bonus = blend('bonus', bonus);
-  let max_bonus = floor(pick_state.lock.length / 2) * doubleLockBonus();
+  let max_bonus = floor(pick_state.lock.length / 2) * doubleLockBonus() +
+    (pick_state.lock.length % 2) * 5;
   drawBox({
     x: x + 1,
     y: y + 1,
@@ -1004,12 +1016,13 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    // loadGame();
+    loadGame();
 
-    // engine.setState(statePlay);
-    // startHeist(6);
+    engine.setState(statePlay);
+    player_state.num_picks = 10;
+    startHeist(0);
     // startTown(false, false);
-    // startUnlocking(12, null);
+    startUnlocking(3, null);
     // dialog('informant');
   }
 }
