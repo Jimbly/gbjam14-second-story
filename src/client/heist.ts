@@ -191,8 +191,8 @@ const HEISTS = [{
   double_bonus: 40,
 }, {
   // debug
-  guards_initial: 2,
-  guards_total: 3,
+  guards_initial: 1,
+  guards_total: 1,
   w: 15,
   h: 15,
   room_min_w: 3,
@@ -207,6 +207,7 @@ const HEISTS = [{
   chest_value_locked: 100,
   tumblers: [2, 0], // [base + range*2]
   double_bonus: 20,
+  fixed_seed: 1,
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -667,7 +668,7 @@ function genLevel(def: HeistDef): void {
     }
     let neighbors: JSVec2[] = [];
     function floodfill(startx: number, starty: number): void {
-      let todo = [startx, starty];
+      let todo: number[] = [];
       function push(xx: number, yy: number): void {
         todo.push(xx, yy);
         reachable[yy][xx] = true;
@@ -991,6 +992,7 @@ class HeistState {
   did_thats_all = false;
   found_special_reward = false;
   did_cell_unlock = false;
+  footstep_counter = 0;
 }
 
 let heist_state: HeistState;
@@ -1654,6 +1656,55 @@ function canSee(pos1: JSVec2, pos2: JSVec2): boolean {
   return true;
 }
 
+const FOOTSTEP_DIST = 12;
+function findClosestGuard(): [number, number] {
+  let { guards, cells, w, h } = level;
+  if (guards.length === 0) {
+    return [-1, 0];
+  }
+  let guard_map: Rec<number, number> = {};
+  for (let ii = 0; ii < guards.length; ++ii) {
+    let guard = guards[ii];
+    let x = floor(guard.pos[0]);
+    let y = floor(guard.pos[1]);
+    guard_map[y * w + x] = ii + 1;
+  }
+
+  let { pos } = heist_state;
+  let todo: number[] = [];
+  let done: Rec<number, true> = {};
+  function push(xx: number, yy: number, dist: number): void {
+    todo.push(xx, yy, dist);
+    done[yy * w + xx] = true;
+  }
+  push(floor(pos[0]), floor(pos[1]), 0);
+  let todoidx = 0;
+  while (todoidx < todo.length) {
+    let x = todo[todoidx++];
+    let y = todo[todoidx++];
+    let dist = todo[todoidx++];
+    for (let ii = 0; ii < DX.length; ++ii) {
+      let xx = x + DX[ii];
+      let yy = y + DY[ii];
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h) {
+        continue;
+      }
+      let idx = yy * w + xx;
+      if (done[idx]) {
+        continue;
+      }
+      if (guard_map[idx]) {
+        return [guard_map[idx] - 1, dist];
+      }
+      let cell = cells[yy][xx];
+      if (cell !== 'wall' && dist < FOOTSTEP_DIST) {
+        push(xx, yy, dist + 1);
+      }
+    }
+  }
+  return [-1, 0];
+}
+
 const SOUND_SPATIAL_SCALE = 5;
 function doGuards(dt: number): void {
   let { pos: player_pos } = heist_state;
@@ -1664,7 +1715,11 @@ function doGuards(dt: number): void {
     up: [0, -1, 0],
   });
 
+
   let { guards, cells } = level;
+
+  let closest_guard = findClosestGuard();
+  let do_footstep = false;
   // default speed : 1 pixel per 60fps frame
   let move_dist = dt * 1/14/(1000/60);
   let closest_footstep: JSVec2 | null = null;
@@ -1692,6 +1747,9 @@ function doGuards(dt: number): void {
     }
     if (!guard.goal) {
       pickGoal(guard);
+      if (closest_guard[0] === ii) {
+        do_footstep = true;
+      }
     }
     assert(guard.goal);
     if (!guard.target) {
@@ -1743,6 +1801,9 @@ function doGuards(dt: number): void {
         iposy + dy + 0.5,
       ];
       updateGuardDir(guard);
+      if (closest_guard[0] === ii) {
+        do_footstep = true;
+      }
       if (!closest_footstep || v2distSq(guard.pos, player_pos) < v2distSq(closest_footstep, player_pos)) {
         closest_footstep = guard.pos;
       }
@@ -1772,14 +1833,20 @@ function doGuards(dt: number): void {
     }
   }
 
-  if (closest_footstep) {
-    soundPlay('footstep', {
-      pos: [
-        closest_footstep[0] * SOUND_SPATIAL_SCALE,
-        closest_footstep[1] * SOUND_SPATIAL_SCALE,
-        SOUND_SPATIAL_SCALE
-      ],
-    });
+  if (0) {
+    if (closest_footstep) {
+      soundPlay('footstep', {
+        pos: [
+          closest_footstep[0] * SOUND_SPATIAL_SCALE,
+          closest_footstep[1] * SOUND_SPATIAL_SCALE,
+          SOUND_SPATIAL_SCALE
+        ],
+      });
+    }
+  }
+
+  if (do_footstep) {
+    soundPlay('footstep', (1 - closest_guard[1]/FOOTSTEP_DIST));
   }
 }
 

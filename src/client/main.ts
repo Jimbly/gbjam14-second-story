@@ -1003,10 +1003,10 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    // loadGame();
+    loadGame();
 
-    // engine.setState(statePlay);
-    // startHeist(3);
+    engine.setState(statePlay);
+    startHeist(6);
     // startTown(false, false);
     // startUnlocking(12, null);
     // dialog('informant');

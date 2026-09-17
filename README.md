@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* maybe footsteps should not use spatial, just hack volume to be useful? (vis radius + 3?)
 * game logo on title
 * better sound when getting a double-pick match (just higher pitch)
 
