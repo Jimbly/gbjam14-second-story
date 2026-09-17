@@ -30,7 +30,7 @@ import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
-import { inputPadMode } from 'glov/client/input';
+import { inputPadMode, keyDownEdge, KEYS } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
@@ -58,9 +58,20 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialog, dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
-import { doHeistView, doTimer, doubleLockBonus, finishUnlocking, initTownMap, isJailbreak, stateHeist, stateHeistInit } from './heist';
+import {
+  curMap,
+  doHeistView,
+  doTimer,
+  doubleLockBonus,
+  finishUnlocking,
+  heistStarted,
+  initTownMap,
+  isJailbreak,
+  stateHeist,
+  stateHeistInit,
+} from './heist';
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
@@ -111,6 +122,80 @@ const PALETTE_GB = [
   0x88c070ff,
   0xe0f8d0ff,
 ].map(toVec4);
+let color_pal_idx_override = -1;
+const COLOR_PALETTES = [
+  PALETTE_DARK,
+  [ // other game, blues - use for town - indoors
+    0x071821ff,
+    0x30455cff,
+    0xde9b4fff,
+    0xe0f8cfff,
+  ].map(toVec4),
+  [// moonlight GB - modified - use for town - outdoors
+    0x0f052dff,
+    0x203671ff,
+    0x47758fff, // 0x36868fff,
+    0x9ea67eff, // 0x5fc75dff,
+  ].map(toVec4),
+  [//crimson - use for special levels
+    0x1b0326ff,
+    0x7a1c4bff,
+    0xba5044ff,
+    0xeff9d6ff,
+  ].map(toVec4),
+
+  [// 2-bit demichrome - use before alert
+    0x211e20ff,
+    0x555568ff,
+    0xa0a08bff,
+    0xe9efecff,
+  ].map(toVec4),
+
+  // unused palettes
+
+  [ // Memory - other game
+    0x381701ff,
+    0x936a4eff,
+    0xe89f53ff,
+    0xefebdfff,
+  ].map(toVec4),
+  [// hollow - too monochrome
+    0x0f0f1bff,
+    0x565a75ff,
+    0xc6b7beff,
+    0xfafbf6ff,
+  ].map(toVec4),
+  [// bluem0ld
+    0x191b1aff,
+    0x294257ff,
+    0x579c9aff,
+    0x99c9b3ff,
+  ].map(toVec4),
+  [ // other rhythm game - very similar to ours
+    0x0c0c0dff,
+    0x5e4262ff,
+    0xb79578ff,
+    0xfbf7f3ff,
+  ].map(toVec4),
+  [// rustic GB
+    0x2c2137ff,
+    0x764462ff,
+    0xedb4a1ff,
+    0xa96868ff,
+  ].map(toVec4),
+  [// velvet cherry GB
+    0x2d162cff,
+    0x412752ff,
+    0x683a68ff,
+    0x9775a6ff,
+  ].map(toVec4),
+  [// gold gb
+    0x210b1bff,
+    0x4d222cff,
+    0x9d654cff,
+    0xcfab51ff,
+  ].map(toVec4),
+];
 
 const font_style0 = fontStyleColored(null, palette_font[0]);
 const font_style1 = fontStyleColored(null, palette_font[1]);
@@ -137,6 +222,7 @@ function init(): void {
   bindsInit();
 }
 
+let palette_lock = false;
 function fadeDither(
   fade_time: number,
   updown: boolean,
@@ -168,6 +254,7 @@ function fadeDither(
           dither_param: [alpha],
         });
     } else {
+      palette_lock = false;
       let alpha = (1 - progress) * 2;
       spriteQueueRaw4([textureBlack(), sprite_dither.texs[0]],
         0, 0, 0, 1,
@@ -207,6 +294,7 @@ export function queueTransitionDither(time?: number): void {
 
 export function queueTransitionDitherUpDown(time?: number): void {
   if (engine.getFrameIndex() > 1) {
+    palette_lock = true;
     transition.queue(Z.TRANSITION_FINAL, fadeDither.bind(null, time || TRANSITION_TIME, true));
   }
 }
@@ -711,9 +799,26 @@ function stateLockPick(dt: number): void {
   }
 }
 
-export function topOfFrame(): void {
+let last_pal: Vec4[];
+export function topOfFrame(is_title: boolean): void {
+  if (engine.DEBUG) {
+    if (keyDownEdge(KEYS.MINUS)) {
+      color_pal_idx_override = ((color_pal_idx_override - 1) + COLOR_PALETTES.length) % COLOR_PALETTES.length;
+    }
+    if (keyDownEdge(KEYS.EQUALS)) {
+      color_pal_idx_override = (color_pal_idx_override + 1) % COLOR_PALETTES.length;
+    }
+  }
   camera2d.setAspectFixed(game_width, game_height);
-  let pal = settingsGet('palette') ? PALETTE_GB : PALETTE_DARK;
+  let pal = last_pal && palette_lock ? last_pal :
+    color_pal_idx_override !== -1 ? COLOR_PALETTES[color_pal_idx_override] :
+    settingsGet('palette') ? PALETTE_GB :
+    is_title ? PALETTE_DARK :
+    player_state.mode === 'town' ? curMap() === 'town' ? COLOR_PALETTES[2] : COLOR_PALETTES[1] :
+    last_heist_index >= 3 ? COLOR_PALETTES[3] :
+    PALETTE_DARK;
+    // heistStarted() || player_state.mode === 'unlock' ? PALETTE_DARK : COLOR_PALETTES[4];
+  last_pal = pal;
   effectsQueue(Z.REPALETTE, function () {
     applyCopy({
       shader: 'repalette',
@@ -782,7 +887,7 @@ export function stateStatus(dt: number): void {
 }
 
 function statePlay(dt: number): void {
-  topOfFrame();
+  topOfFrame(false);
   if (player_state.mode === 'unlock') {
     return stateLockPick(dt);
   } else if (player_state.mode === 'heist') {
@@ -894,10 +999,10 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    loadGame();
+    // loadGame();
 
     // engine.setState(statePlay);
-    // startHeist(0);
+    // startHeist(3);
     // startTown(false, false);
     // startUnlocking(12, null);
     // dialog('informant');

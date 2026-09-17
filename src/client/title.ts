@@ -52,7 +52,7 @@ function stateTitleInit(): void {
 }
 
 function stateTitle(dt: number): void {
-  topOfFrame();
+  topOfFrame(true);
   let palette_font = getPaletteFont();
   let palette = getPalette();
 
@@ -66,6 +66,7 @@ function stateTitle(dt: number): void {
     if (transitionActive()) {
       return;
     }
+    title_frame = 2;
   }
 
   let font = uiGetFont();
@@ -74,7 +75,7 @@ function stateTitle(dt: number): void {
   let W = game_width;
   let H = game_height;
 
-  if (title_anim && (mouseDownAnywhere() || actionEdge('accept') || DEBUG)) {
+  if (title_anim && (mouseDownAnywhere() || actionEdge('accept'))) {
     title_anim.update(Infinity);
     title_anim = null;
   }

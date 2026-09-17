@@ -27,7 +27,7 @@ let options_from: 'title' | 'game';
 let selection = 0;
 
 function stateOptionsMenu(dt: number): void {
-  topOfFrame();
+  topOfFrame(false);
   let palette_font = getPaletteFont();
 
   let W = game_width;

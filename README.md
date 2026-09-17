@@ -2,11 +2,12 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* if special loot - display "!" or chest icon next to loot bar once found
-* different palette in town
 * maybe footsteps should not use spatial, just hack volume to be useful? (vis radius + 3?)
 * game logo on title
 * better sound when getting a double-pick match (just higher pitch)
+
+Pre-prelease
+* re-check seeds for all special houses
 
 Stretch
 * GBJam logo
@@ -18,3 +19,4 @@ Stretch
 * pulsate guard's light (inner radius, especially)
 * add pulsating lights
 * framing and touch controls? https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231
+* palette-crunch transition to/from town/shops look better?

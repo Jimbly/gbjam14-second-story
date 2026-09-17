@@ -86,8 +86,8 @@ const HEISTS = [{
   intro_dialog: '',
   double_bonus: 20,
 }, {
-  guards_initial: 0,
-  guards_total: 4,
+  guards_initial: 2,
+  guards_total: 6,
   w: 50,
   h: 40,
   room_min_w: 3,
@@ -126,7 +126,7 @@ const HEISTS = [{
 }, {
   // special house #1
   guards_initial: 2,
-  guards_total: 6,
+  guards_total: 4,
   w: 30,
   h: 20,
   room_min_w: 3,
@@ -995,7 +995,14 @@ class HeistState {
 
 let heist_state: HeistState;
 
+export function heistStarted(): boolean {
+  return heist_state.started;
+}
+
 let cur_map: string;
+export function curMap(): string {
+  return cur_map;
+}
 function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
   let json = LEVELS[name];
   cur_map = name;
@@ -1976,7 +1983,8 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   }
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
-    autoAtlas('gfx', chest.opened ? 'chest-opened' : chest.pick_state ? 'chest-aborted' : 'chest').draw({
+    autoAtlas('gfx', chest.opened ? 'chest-opened' : chest.pick_state ? 'chest-aborted' :
+      level.def.reward_dialog ? 'chest-special' : 'chest').draw({
       x: chest.pos[0] * TILESIZE,
       y: chest.pos[1] * TILESIZE,
       w: TILESIZE,
