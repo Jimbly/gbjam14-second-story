@@ -9,7 +9,6 @@ Pre-prelease
 * re-check seeds for all special houses
 
 Stretch
-* pulsate guard's light (inner radius, especially)
 * add pulsating lights
 * apply guards line of sight to light display
 * framing and touch controls? https://discord.com/channels/476958898004164610/1547927465555398749/1548011201156485231

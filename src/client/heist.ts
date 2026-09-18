@@ -2,7 +2,7 @@ import assert from 'assert';
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
-import { DEBUG } from 'glov/client/engine';
+import { DEBUG, getFrameTimestamp } from 'glov/client/engine';
 import { ALIGN, fontStyle } from 'glov/client/font';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
@@ -2085,9 +2085,11 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
 
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
+    let gx = round(guard.pos[0] * TILESIZE);
+    let gy = round(guard.pos[1] * TILESIZE);
     autoAtlas('gfx', ['guard-down', 'guard-right', 'guard-up', 'guard-left'][guard.dir]).draw({
-      x: round(guard.pos[0] * TILESIZE) - TILESIZE/2,
-      y: round(guard.pos[1] * TILESIZE) - TILESIZE/2,
+      x: gx - TILESIZE/2,
+      y: gy - TILESIZE/2,
       w: TILESIZE,
       h: TILESIZE,
       z: Z.GUARDS,
@@ -2119,19 +2121,41 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
         align: ALIGN.HCENTER,
       });
     }
-    autoAtlas('gfx', 'light').draw({
-      x: round(guard.pos[0] * TILESIZE) - 35,
-      y: round(guard.pos[1] * TILESIZE) - 35,
-      w: 70,
-      h: 70,
-      blend: BLEND_ADDITIVE,
-      z: Z.LIGHT,
-    });
+    if (0) {
+      autoAtlas('gfx', 'light').draw({
+        x: gx - 35,
+        y: gy - 35,
+        w: 70,
+        h: 70,
+        blend: BLEND_ADDITIVE,
+        z: Z.LIGHT,
+      });
+    } else {
+      autoAtlas('gfx', 'light1').draw({
+        color: [1, 1, 1, 0.25],
+        x: gx - 35,
+        y: gy - 35,
+        w: 70,
+        h: 70,
+        blend: BLEND_ADDITIVE,
+        z: Z.LIGHT,
+      });
+      let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
+      autoAtlas('gfx', 'light1').draw({
+        color: [1, 1, 1, 0.25],
+        x: gx - r,
+        y: gy - r,
+        w: r * 2,
+        h: r * 2,
+        blend: BLEND_ADDITIVE,
+        z: Z.LIGHT,
+      });
+    }
     if (DEBUG && false) {
       uiGetFont().draw({
         color: 0xFFFFFFff,
-        x: round(guard.pos[0] * TILESIZE),
-        y: round(guard.pos[1] * TILESIZE) - TILESIZE/2 - 8,
+        x: gx,
+        y: gy - TILESIZE/2 - 8,
         z: Z.GUARDS + 1,
         align: ALIGN.HCENTER,
         text: `${guard.goal}`,
