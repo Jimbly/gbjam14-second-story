@@ -1059,11 +1059,11 @@ export function main(): void {
     }
     loadGame();
 
-    // engine.setState(statePlay);
-    // player_state.num_picks = 10;
-    // startHeist(0);
+    engine.setState(statePlay);
+    player_state.num_picks = 10;
+    startHeist(0);
     // startTown(false, false);
     // startUnlocking(3, null);
-    dialog('informant');
+    // dialog('informant');
   }
 }

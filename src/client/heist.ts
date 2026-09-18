@@ -46,6 +46,8 @@ import {
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
 
+const DO_SELF_GLOW = false;
+
 const LEVELS = {
   town: require('./town.json'), // eslint-disable-line n/global-require
   jail: require('./jail.json'), // eslint-disable-line n/global-require
@@ -321,6 +323,7 @@ const TILE_Z: Rec<string, number> = {
   'door-v': Z.DOORS,
   'door-h': Z.DOORS,
   'floor-1': Z.BACKGROUND,
+  'floor-1b': Z.BACKGROUND,
   'floor-2': Z.CEILING,
   'chest-opened': Z.CHESTS,
   'chest-aborted': Z.CHESTS,
@@ -355,7 +358,7 @@ function cellsToTiles(level: Level): void {
           spr = 'door-h';
         }
       } else {
-        spr = 'floor-1';
+        spr = DO_SELF_GLOW ? 'floor-1b' : 'floor-1';
       }
       row.push(spr);
     }
@@ -2034,6 +2037,17 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     w: TILESIZE,
     h: TILESIZE,
   });
+  if (DO_SELF_GLOW) {
+    autoAtlas('gfx', 'light1').draw({
+      color: [1, 1, 1, 0.02],
+      x: hx - 35,
+      y: hy - 35,
+      w: 70,
+      h: 70,
+      blend: BLEND_ADDITIVE,
+      z: Z.LIGHT,
+    });
+  }
 
   let x0 = floor(camera2d.x0() / TILESIZE);
   let x1 = floor(camera2d.x1() / TILESIZE);
