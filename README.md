@@ -9,7 +9,6 @@ Pre-prelease
 * re-check seeds for all special houses
 
 Stretch
-* palette-crunch transition to/from town/shops look better?
 * breaking (only in med/hard?) and repairing lockpicks
 * additional time upgrade?
 * static torches (in town too, at least indoors)

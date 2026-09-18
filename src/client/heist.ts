@@ -48,6 +48,7 @@ import {
   playerState,
   queueTransitionDither,
   queueTransitionDitherUpDown,
+  queueTransitionPaletteCrunchUpDown,
   randInt,
   setUICamera,
   startUnlocking
@@ -1139,6 +1140,7 @@ function doEvent(event: MapEvent): void {
       } else {
         end_of_frame_load = 'town';
       }
+      //queueTransitionPaletteCrunchUpDown(500);
       queueTransitionDither();
       break;
     case 'jailenter':
@@ -1147,6 +1149,7 @@ function doEvent(event: MapEvent): void {
       } else {
         end_of_frame_load = 'town';
       }
+      //queueTransitionPaletteCrunchUpDown(500);
       queueTransitionDither();
       break;
     case 'celldoor':
@@ -2488,7 +2491,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
 
   if (!dialogMoveLocked() && actionEdge('cancel')) {
     playSound('button_click');
-    queueTransitionDitherUpDown();
+    queueTransitionPaletteCrunchUpDown();
     optionsMenu('game');
   }
 

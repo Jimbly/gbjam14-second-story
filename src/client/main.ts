@@ -27,9 +27,10 @@ import assert from 'assert';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
-import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
+import { applyCopy, effectsIsFinal, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { inputPadMode, inputTouchMode, keyDownEdge, KEYS, mouseDownOverBounds, mousePos } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
@@ -39,7 +40,7 @@ import { settingsGet } from 'glov/client/settings';
 import { shaderCreate } from 'glov/client/shaders';
 import { spot, SPOT_DEFAULT_BUTTON, SPOT_STATE_DOWN } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
-import { Shader, Sprite, spriteCreate, spriteQueueRaw4, Texture } from 'glov/client/sprites';
+import { Shader, Sprite, spriteCreate, spriteQueueRaw, spriteQueueRaw4, Texture } from 'glov/client/sprites';
 import { textureBlack } from 'glov/client/textures';
 import * as transition from 'glov/client/transition';
 import {
@@ -52,7 +53,7 @@ import {
 } from 'glov/client/ui';
 import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { v2dist, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
+import { unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
@@ -211,6 +212,7 @@ const font_style3 = fontStyleColored(null, palette_font[3]);
 let shader_dither_transition: Shader;
 let sprite_dither: Sprite;
 const dither_uvs = vec4(0, 0, game_width / 4, game_height / 4);
+let shader_crunch_transition: Shader;
 
 function init(): void {
   registerShader('repalette', {
@@ -221,6 +223,7 @@ function init(): void {
   });
 
   shader_dither_transition = shaderCreate('shaders/dither_transition.fp');
+  shader_crunch_transition = shaderCreate('shaders/crunch_transition.fp');
 
   sprite_dither = spriteCreate({
     name: 'dither',
@@ -289,6 +292,52 @@ function fadeDither(
   }
 
   if (force_end || progress === 1) {
+    palette_lock = false;
+    return transition.REMOVE;
+  }
+  return transition.CONTINUE;
+}
+
+let transition_crunch_textures: Texture[] = [];
+
+function fadePaletteCrunchCapture(): void {
+  let tex = framebufferEnd();
+  framebufferStart({
+    width: tex.width,
+    height: tex.height,
+    final: effectsIsFinal(),
+  });
+  transition_crunch_textures[0] = tex;
+}
+
+function fadePaletteCrunch(
+  fade_time: number,
+  z: number,
+  initial: Texture,
+  ms_since_start: number,
+  force_end: boolean
+): string {
+  let progress = min(ms_since_start / fade_time, 1);
+  camera2d.setNormalized();
+
+  transition_crunch_textures[0] = initial;
+  if (progress > 0.5) {
+    palette_lock = false;
+    effectsQueue(z, fadePaletteCrunchCapture); // modifies transition_crunch_textures[]
+  } else {
+    palette_lock = true;
+  }
+
+  let partial_progress = (progress > 0.5 ? 1 - progress : progress) * 2;
+
+  spriteQueueRaw(transition_crunch_textures, 0, 0, z + 1, 1, 1,
+    0, 1, 1, 0,
+    unit_vec, shader_crunch_transition, {
+      param: [floor((1 - partial_progress) * 3)],
+    });
+
+  if (force_end || progress === 1) {
+    palette_lock = false;
     return transition.REMOVE;
   }
   return transition.CONTINUE;
@@ -306,6 +355,13 @@ export function queueTransitionDitherUpDown(time?: number): void {
   if (engine.getFrameIndex() > 1) {
     palette_lock = true;
     transition.queue(Z.TRANSITION_FINAL, fadeDither.bind(null, time || TRANSITION_TIME, true));
+  }
+}
+
+export function queueTransitionPaletteCrunchUpDown(time?: number): void {
+  if (engine.getFrameIndex() > 1) {
+    palette_lock = true;
+    transition.queue(Z.TRANSITION_FINAL, fadePaletteCrunch.bind(null, time || 350));
   }
 }
 
@@ -676,6 +732,7 @@ function drawPicks(): void {
 
     if (!disabled) {
       if (!pick_state.anim && pick_state.queued_use !== -1 && !pick_state.queued_exit) {
+        pick_state.last_bonus = pick_state.bonus;
         usePick(pick_state.queued_use);
         pick_state.queued_use = -1;
       }
@@ -1016,7 +1073,7 @@ export function startUnlocking(num_tumblers: number, pick_state_in: PickState | 
 }
 
 export function startHeist(index: number): void {
-  queueTransitionDitherUpDown();
+  queueTransitionPaletteCrunchUpDown(500);
   dialogReset();
   player_state.mode = 'heist';
   last_heist_index = index;
@@ -1216,10 +1273,10 @@ export function main(): void {
     loadGame();
 
     engine.setState(statePlay);
-    player_state.num_picks = 10;
+    // player_state.num_picks = 10;
     startHeist(3);
     // startTown(false, false);
-    startUnlocking(3, null);
+    startUnlocking(10, null);
     // dialog('informant');
   }
 }

@@ -5,7 +5,14 @@ import { settingsGet, settingsRegister, settingsSet } from 'glov/client/settings
 import { uiGetFont } from 'glov/client/ui';
 import { actionEdge } from './binds';
 import { game_height, game_width } from './globals';
-import { backToGame, getPaletteFont, queueTransitionDitherUpDown, saveGame, stateStatus, topOfFrame } from './main';
+import {
+  backToGame,
+  getPaletteFont,
+  queueTransitionPaletteCrunchUpDown,
+  saveGame,
+  stateStatus,
+  topOfFrame
+} from './main';
 import { playSound } from './sound_data';
 import { titleInit } from './title';
 
@@ -174,7 +181,7 @@ function stateOptionsMenu(dt: number): void {
     indicator();
     if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
       playSound('button_click');
-      queueTransitionDitherUpDown();
+      queueTransitionPaletteCrunchUpDown();
       titleInit();
     }
     ++selidx;
@@ -190,7 +197,7 @@ function stateOptionsMenu(dt: number): void {
     if (selection === selidx) {
       if (actionEdge('accept')) {
         playSound('button_click');
-        queueTransitionDitherUpDown(500);
+        queueTransitionPaletteCrunchUpDown(500);
         saveGame();
         titleInit();
       }
@@ -207,7 +214,7 @@ function stateOptionsMenu(dt: number): void {
     indicator();
     if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
       playSound('button_click');
-      queueTransitionDitherUpDown();
+      queueTransitionPaletteCrunchUpDown();
       backToGame();
     }
     ++selidx;

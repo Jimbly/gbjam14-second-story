@@ -14,7 +14,7 @@ import {
   loadGame,
   newGameInit,
   queueTransitionDither,
-  queueTransitionDitherUpDown,
+  queueTransitionPaletteCrunchUpDown,
   topOfFrame,
 } from './main';
 import { optionsMenu } from './options';
@@ -162,7 +162,7 @@ function stateTitle(dt: number): void {
       });
       if (actionEdge('accept')) {
         playSound('button_click');
-        queueTransitionDitherUpDown(500);
+        queueTransitionPaletteCrunchUpDown(500);
         loadGame();
       }
     }
@@ -184,7 +184,7 @@ function stateTitle(dt: number): void {
       });
       if (actionEdge('accept')) {
         playSound('button_click');
-        queueTransitionDitherUpDown(500);
+        queueTransitionPaletteCrunchUpDown(500);
         newGameInit();
       }
     }
@@ -206,7 +206,7 @@ function stateTitle(dt: number): void {
       });
       if (actionEdge('accept')) {
         playSound('button_click');
-        queueTransitionDitherUpDown();
+        queueTransitionPaletteCrunchUpDown(500);
         optionsMenu('title');
       }
     }
