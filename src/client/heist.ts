@@ -12,8 +12,6 @@ import { sound3DListener, soundPlay } from 'glov/client/sound';
 import {
   BLEND_ADDITIVE,
   blendModeSet,
-  spriteClipPop,
-  spriteClipPush,
   spriteQueueFn,
   Texture,
 } from 'glov/client/sprites';
@@ -317,7 +315,7 @@ Z.VISMAPCAPTURE = 14;
 Z.LIGHTOUTER = 20;
 Z.LIGHTINNER = 21;
 Z.LIGHTPASS = 22;
-Z.BACKGROUND = 30;
+Z.FLOORS = 30;
 Z.WALLS = 35;
 Z.CHESTS = 35;
 Z.DOORS = 39;
@@ -325,6 +323,8 @@ Z.LIGHT = 40;
 Z.HERO = 50;
 Z.GUARDS = 51;
 Z.CEILING = 60;
+Z.BACKGROUND = 80;
+Z.UI = 90;
 Z.DIALOG = 100;
 Z.FLOATERS = 150;
 
@@ -339,8 +339,8 @@ const TILE_Z: Rec<string, number> = {
   'celldoor': Z.DOORS,
   'door-v': Z.DOORS,
   'door-h': Z.DOORS,
-  'floor-1': Z.BACKGROUND,
-  'floor-1b': Z.BACKGROUND,
+  'floor-1': Z.FLOORS,
+  'floor-1b': Z.FLOORS,
   'floor-2': Z.CEILING,
   'chest-opened': Z.CHESTS,
   'chest-aborted': Z.CHESTS,
@@ -2426,9 +2426,9 @@ export function doHeistView(dt: number, rect: UIBox): void {
   doGuards(unpaused_dt);
   doMotion(0, false);
 
-  spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+  // spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
   doHeistViewSub(rect, dt);
-  spriteClipPop();
+  // spriteClipPop();
 
   doFloaters(dt);
 

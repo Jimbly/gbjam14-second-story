@@ -44,6 +44,7 @@ import { textureBlack } from 'glov/client/textures';
 import * as transition from 'glov/client/transition';
 import {
   drawBox,
+  drawRect,
   PanelParam,
   scaleSizes,
   setFontHeight,
@@ -82,7 +83,6 @@ import { titleInit } from './title';
 const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
-Z.BACKGROUND = 1;
 Z.REPALETTE = 99999;
 
 
@@ -663,7 +663,7 @@ function drawPicks(): void {
       }
     }
     autoAtlas('gfx', gfx).withOrigin(ORIGIN_CENTER).draw({
-      x: x + w/2, z: selected ? z + 1 : 1,
+      x: x + w/2, z: selected ? z + 1 : Z.BACKGROUND + 1,
       y: yy + h /2,
       w, h,
       rot,
@@ -806,7 +806,9 @@ function stateLockPick(dt: number): void {
   drawBox({
     ...heist_view,
     z: Z.BACKGROUND + 0.1,
-  }, autoAtlas('gfx', 'box'));
+  }, autoAtlas('gfx', 'box-invis'));
+  drawRect(0, 0, heist_view.x, heist_view.y + heist_view.h, Z.BACKGROUND, palette[2]);
+  drawRect(heist_view.x, 0, game_width, heist_view.y, Z.BACKGROUND, palette[2]);
   doHeistView(world_dt, heist_view);
   if (!dialogMoveLocked() && (
     !pick_state.anim && (pick_state.progress === pick_state.lock.length || pick_state.queued_exit) ||
@@ -1065,7 +1067,7 @@ export function main(): void {
     player_state.num_picks = 10;
     startHeist(3);
     // startTown(false, false);
-    // startUnlocking(3, null);
+    startUnlocking(3, null);
     // dialog('informant');
   }
 }

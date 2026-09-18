@@ -15,3 +15,4 @@ Stretch
 * additional time upgrade?
 * static torches (in town too, at least indoors)
 * additional wall and floor sets?
+* detail more pick gfx
