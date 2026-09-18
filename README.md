@@ -3,7 +3,6 @@ GBJam14 - "Old Gold"
 
 TODO
 * playtest, buy picks
-* use player's light to change look of chests - tweak their palette to only glow when lit up
 
 Pre-prelease
 * re-check seeds for all special houses

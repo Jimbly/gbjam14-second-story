@@ -2172,17 +2172,16 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     w: TILESIZE,
     h: TILESIZE,
   });
-  if (DO_SELF_GLOW) {
-    autoAtlas('gfx', 'light1').draw({
-      color: [1, 1, 1, 0.02],
-      x: hx - 35,
-      y: hy - 35,
-      w: 70,
-      h: 70,
-      blend: BLEND_ADDITIVE,
-      z: Z.LIGHT,
-    });
-  }
+  let player_light_r = 14 * 1.5;
+  autoAtlas('gfx', 'light1').draw({
+    color: [1, 1, 1, 0.02],
+    x: hx - player_light_r,
+    y: hy - player_light_r,
+    w: player_light_r * 2,
+    h: player_light_r * 2,
+    blend: BLEND_ADDITIVE,
+    z: Z.LIGHT,
+  });
 
   let x0 = floor(mapped_pos0[0] / TILESIZE);
   let x1 = floor(mapped_pos1[0] / TILESIZE);

@@ -15,7 +15,7 @@ void main()
   float v = min(3.0, floor((tex.r + tex.g + tex.b) * 1.5)); // 0...3
   // floor(avg * 4.5) => 0...3
   // avg >= 0.2223 (57) => 1
-  // avg >= 0.4445 (134) => 2
+  // avg >= 0.4445 (114) => 2
   // avg >= 0.6667 (170) => 3
   vec3 repal = mix(mix(mix(pal0,
     pal1, v),
