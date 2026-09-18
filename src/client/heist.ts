@@ -25,6 +25,7 @@ import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
   JSVec2,
   JSVec4,
+  unit_vec,
   v2addScale,
   v2cross,
   v2dist,
@@ -56,6 +57,7 @@ import { optionsMenu } from './options';
 import { playSound } from './sound_data';
 
 const DO_SELF_GLOW = false;
+const NOCHASE = false;
 
 const LEVELS = {
   town: require('./town.json'), // eslint-disable-line n/global-require
@@ -1514,7 +1516,7 @@ function doMotion(dt: number, is_town: boolean): void {
     let { guards } = level;
     for (let ii = 0; ii < guards.length; ++ii) {
       let guard = guards[ii];
-      if (v2distSq(guard.pos, pos) < 0.8*0.8) {
+      if (v2distSq(guard.pos, pos) < 0.8*0.8 && !NOCHASE) {
         playSound('guard_caught');
         heist_state.floaters.push({
           t: 0,
@@ -1637,7 +1639,13 @@ function pickGoal(guard: Guard): void {
   }
 }
 
-function canSeePaint(x0: number, y0: number, x1: number, y1: number, map: Rec<number, boolean>): void {
+const VIS_FROM_BELOW = 1;
+const VIS_FROM_RIGHT = 2;
+const VIS_FROM_ABOVE = 4;
+const VIS_FROM_LEFT = 8;
+const VIS_ALL = 15;
+
+function canSeePaint(x0: number, y0: number, x1: number, y1: number, vismap: Rec<number, number>): void {
   let { cells, w } = level;
   let dx = abs(x1 - x0);
   let sx = x0 < x1 ? 1 : -1;
@@ -1645,12 +1653,31 @@ function canSeePaint(x0: number, y0: number, x1: number, y1: number, map: Rec<nu
   let sy = y0 < y1 ? 1 : -1;
   let error = dx + dy;
 
+  let lastx = x0;
+  let lasty = y0;
   while (true) {
     let cell = cells[y0][x0];
-    map[y0 * w + x0] = true;
     if (cell === 'wall') {
+      let vis = vismap[y0 * w + x0] || 0;
+      // if (lasty === y0) {
+      if (lastx < x0) {
+        vis |= VIS_FROM_LEFT;
+      } else if (lastx > x0) {
+        vis |= VIS_FROM_RIGHT;
+      }
+      // } else if (lastx === x0) {
+      if (lasty < y0) {
+        vis |= VIS_FROM_ABOVE;
+      } else if (lasty > y0) {
+        vis |= VIS_FROM_BELOW;
+      }
+      // }
+      vismap[y0 * w + x0] = vis;
       return;
     }
+    vismap[y0 * w + x0] = VIS_ALL;
+    lastx = x0;
+    lasty = y0;
     let e2 = 2 * error;
     if (e2 >= dy) {
       if (x0 === x1) {
@@ -1780,7 +1807,7 @@ function doGuards(dt: number): void {
       let was_chasing = Boolean(guard.chasing);
       let guard_radius = guard.chasing ? 2.75 : 2.5;
       guard.chasing = false;
-      if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius) {
+      if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius && !NOCHASE) {
         // potentially in range, do we have line of sight?
         if (canSee(guard.pos, player_pos)) {
           guard.chasing = true;
@@ -2149,6 +2176,15 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
         h: TILESIZE,
         z,
       });
+      if (spr === 'door-h') {
+        autoAtlas('gfx', 'door-h-highz').draw({
+          x: xx * TILESIZE,
+          y: yy * TILESIZE,
+          w: TILESIZE,
+          h: TILESIZE,
+          z: Z.LIGHT + 2,
+        });
+      }
     }
   }
   for (let ii = 0; ii < chests.length; ++ii) {
@@ -2164,7 +2200,7 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   }
 
   const LIGHTRAD = 2.5;
-  let vismap: Rec<number, boolean> = {};
+  let vismap: Rec<number, number> = {};
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
     let gx = round(guard.pos[0] * TILESIZE);
@@ -2180,10 +2216,17 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
 
     let gxi = floor(guard.pos[0]);
     let gyi = floor(guard.pos[1]);
-    for (let xx = max(0, gxi - 3); xx <= min(w-1, gxi + 3); ++xx) {
-      for (let yy = max(0, gyi - 3); yy <= min(h-1, gyi + 3); ++yy) {
-        canSeePaint(gxi, gyi, xx, yy, vismap);
-      }
+    let lightx0 = max(0, gxi - 3);
+    let lighty0 = max(0, gyi - 3);
+    let lightx1 = min(w-1, gxi + 3);
+    let lighty1 = min(h-1, gyi + 3);
+    for (let xx = lightx0; xx <= lightx1; ++xx) {
+      canSeePaint(gxi, gyi, xx, lighty0, vismap);
+      canSeePaint(gxi, gyi, xx, lighty1, vismap);
+    }
+    for (let yy = lighty0; yy <= lighty1; ++yy) {
+      canSeePaint(gxi, gyi, lightx0, yy, vismap);
+      canSeePaint(gxi, gyi, lightx1, yy, vismap);
     }
 
     autoAtlas('gfx', ['guard-down', 'guard-right', 'guard-up', 'guard-left'][guard.dir]).draw({
@@ -2230,14 +2273,26 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
         z: Z.LIGHT,
       });
     } else {
-      autoAtlas('gfx', 'light1').draw({
-        color: [0.25, 0.25, 0.25, 1],
-        x: gx - LIGHTRAD * TILESIZE,
-        y: gy - LIGHTRAD * TILESIZE,
-        w: LIGHTRAD * 2 * TILESIZE,
-        h: LIGHTRAD * 2 * TILESIZE,
-        z: Z.LIGHTOUTER,
-      });
+      if (1) {
+        autoAtlas('gfx', 'light1').draw({
+          color: [0.25, 0.25, 0.25, 1],
+          x: gx - LIGHTRAD * TILESIZE,
+          y: gy - LIGHTRAD * TILESIZE,
+          w: LIGHTRAD * 2 * TILESIZE,
+          h: LIGHTRAD * 2 * TILESIZE,
+          z: Z.LIGHTOUTER,
+        });
+      } else {
+        autoAtlas('gfx', 'light2').draw({
+          color: [0.25, 0.25, 0.25, 1],
+          x: (gxi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
+          y: (gyi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
+          w: LIGHTRAD * 2 * TILESIZE,
+          h: LIGHTRAD * 2 * TILESIZE,
+          z: Z.LIGHTOUTER,
+        });
+      }
+
       let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
       autoAtlas('gfx', 'light1').draw({
         color: [0.5, 0.5, 0.5, 1],
@@ -2267,11 +2322,37 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   clearAt(Z.VISMAP);
   clearAt(Z.VISMAPCAPTURE + 1);
   clearAt(Z.LIGHTPASS + 1);
+  let { cells } = level;
+  function cellIsOpen(xx: number, yy: number): boolean {
+    let cell = cells[yy] && cells[yy][xx];
+    return cell === 'floor'; // || cell === 'door';
+  }
+
   for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
     for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
-      if (vismap[yy * w + xx]) {
-        drawRect(xx * TILESIZE, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
-          [1,1,1,1]);
+      let v = vismap[yy * w + xx];
+      if (v) {
+        if (v === VIS_ALL) {
+          drawRect(xx * TILESIZE, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+            unit_vec);
+        } else {
+          if ((v & VIS_FROM_ABOVE) && cellIsOpen(xx, yy-1)) {
+            drawRect(xx * TILESIZE, yy * TILESIZE, (xx + 1) * TILESIZE, yy * TILESIZE + 2, Z.VISMAP + 1,
+              unit_vec);
+          }
+          if ((v & VIS_FROM_BELOW) && cellIsOpen(xx, yy + 1)) {
+            drawRect(xx * TILESIZE, yy * TILESIZE + 5, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+              unit_vec);
+          }
+          if ((v & VIS_FROM_LEFT) && cellIsOpen(xx-1, yy)) {
+            drawRect(xx * TILESIZE, yy * TILESIZE, xx * TILESIZE + 2, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+              unit_vec);
+          }
+          if ((v & VIS_FROM_RIGHT) && cellIsOpen(xx+1, yy)) {
+            drawRect((xx + 1) * TILESIZE - 2, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+              unit_vec);
+          }
+        }
       }
     }
   }
