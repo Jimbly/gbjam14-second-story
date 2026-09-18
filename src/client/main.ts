@@ -212,6 +212,9 @@ function init(): void {
   registerShader('repalette', {
     fp: 'shaders/repalette.fp',
   });
+  registerShader('lightpass', {
+    fp: 'shaders/lightpass.fp',
+  });
 
   shader_dither_transition = shaderCreate('shaders/dither_transition.fp');
 

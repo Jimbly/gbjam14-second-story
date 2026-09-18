@@ -18,7 +18,7 @@ import {
   Texture,
 } from 'glov/client/sprites';
 import { active as transitionActive } from 'glov/client/transition';
-import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { drawBox, drawLine, drawRect, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate, shuffleArray } from 'glov/common/rand_alea';
 import { DataObject, Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
@@ -310,17 +310,19 @@ class Level {
 }
 
 
-Z.LIGHTOUTER = 1;
-Z.LIGHTINNER = 2;
-Z.LIGHTPASS = 3;
-Z.BACKGROUND = 4;
-Z.WALLS = 5;
-Z.CHESTS = 5;
-Z.DOORS = 9;
-Z.LIGHT = 20;
-Z.HERO = 30;
-Z.GUARDS = 31;
-Z.CEILING = 40;
+Z.VISMAP = 10;
+Z.VISMAPCAPTURE = 14;
+Z.LIGHTOUTER = 20;
+Z.LIGHTINNER = 21;
+Z.LIGHTPASS = 22;
+Z.BACKGROUND = 30;
+Z.WALLS = 35;
+Z.CHESTS = 35;
+Z.DOORS = 39;
+Z.LIGHT = 40;
+Z.HERO = 50;
+Z.GUARDS = 51;
+Z.CEILING = 60;
 Z.DIALOG = 100;
 Z.FLOATERS = 150;
 
@@ -1635,6 +1637,38 @@ function pickGoal(guard: Guard): void {
   }
 }
 
+function canSeePaint(x0: number, y0: number, x1: number, y1: number, map: Rec<number, boolean>): void {
+  let { cells, w } = level;
+  let dx = abs(x1 - x0);
+  let sx = x0 < x1 ? 1 : -1;
+  let dy = -abs(y1 - y0);
+  let sy = y0 < y1 ? 1 : -1;
+  let error = dx + dy;
+
+  while (true) {
+    let cell = cells[y0][x0];
+    map[y0 * w + x0] = true;
+    if (cell === 'wall') {
+      return;
+    }
+    let e2 = 2 * error;
+    if (e2 >= dy) {
+      if (x0 === x1) {
+        break;
+      }
+      error += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      if (y0 === y1) {
+        break;
+      }
+      error += dx;
+      y0 += sy;
+    }
+  }
+}
+
 function canSee(pos1: JSVec2, pos2: JSVec2): boolean {
   let { cells } = level;
   let [x0, y0] = pos1;
@@ -2035,22 +2069,28 @@ export function doTimer(dt: number): void {
 let lightpass: Texture;
 function lightPassCapture(): void {
   lightpass = framebufferEnd();
-  // if (lightpass.fbo) {
-  //   // new framebuffer bound, effectively cleared, need to blit this to it!
-  //   applyCopy({ source: lightpass, final: effectsIsFinal() });
-  // } else {
   framebufferStart({
     width: lightpass.width,
     height: lightpass.height,
     final: effectsIsFinal(),
   });
-  // }
+}
+
+let vismap_tex: Texture;
+function vismapCapture(): void {
+  vismap_tex = framebufferEnd();
+  framebufferStart({
+    width: vismap_tex.width,
+    height: vismap_tex.height,
+    final: effectsIsFinal(),
+  });
 }
 
 function lightPassApply(): void {
   blendModeSet(BLEND_ADDITIVE);
   applyCopy({
-    source: lightpass,
+    source: [lightpass, vismap_tex],
+    shader: 'lightpass',
     no_framebuffer: true,
   });
 }
@@ -2067,6 +2107,7 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     clamp(-centery + hy, -rect.y, level.h * TILESIZE - rect.h));
 
   effectsQueue(Z.LIGHTPASS, lightPassCapture);
+  effectsQueue(Z.VISMAPCAPTURE, vismapCapture);
   spriteQueueFn(Z.LIGHT, lightPassApply);
 
   autoAtlas('gfx', ['hero-down', 'hero-right', 'hero-up', 'hero-left'][heist_state.dir]).draw({
@@ -2122,10 +2163,29 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     });
   }
 
+  const LIGHTRAD = 2.5;
+  let vismap: Rec<number, boolean> = {};
   for (let ii = 0; ii < guards.length; ++ii) {
     let guard = guards[ii];
     let gx = round(guard.pos[0] * TILESIZE);
     let gy = round(guard.pos[1] * TILESIZE);
+    if (
+      guard.pos[0] < x0 - LIGHTRAD ||
+      guard.pos[0] > x1 + LIGHTRAD + 1 ||
+      guard.pos[1] < y0 - LIGHTRAD ||
+      guard.pos[1] > y1 + LIGHTRAD + 1
+    ) {
+      continue;
+    }
+
+    let gxi = floor(guard.pos[0]);
+    let gyi = floor(guard.pos[1]);
+    for (let xx = max(0, gxi - 3); xx <= min(w-1, gxi + 3); ++xx) {
+      for (let yy = max(0, gyi - 3); yy <= min(h-1, gyi + 3); ++yy) {
+        canSeePaint(gxi, gyi, xx, yy, vismap);
+      }
+    }
+
     autoAtlas('gfx', ['guard-down', 'guard-right', 'guard-up', 'guard-left'][guard.dir]).draw({
       x: gx - TILESIZE/2,
       y: gy - TILESIZE/2,
@@ -2162,20 +2222,20 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     }
     if (0) {
       autoAtlas('gfx', 'light').draw({
-        x: gx - 35,
-        y: gy - 35,
-        w: 70,
-        h: 70,
+        x: gx - LIGHTRAD * TILESIZE,
+        y: gy - LIGHTRAD * TILESIZE,
+        w: LIGHTRAD * 2 * TILESIZE,
+        h: LIGHTRAD * 2 * TILESIZE,
         blend: BLEND_ADDITIVE,
         z: Z.LIGHT,
       });
     } else {
       autoAtlas('gfx', 'light1').draw({
         color: [0.25, 0.25, 0.25, 1],
-        x: gx - 35,
-        y: gy - 35,
-        w: 70,
-        h: 70,
+        x: gx - LIGHTRAD * TILESIZE,
+        y: gy - LIGHTRAD * TILESIZE,
+        w: LIGHTRAD * 2 * TILESIZE,
+        h: LIGHTRAD * 2 * TILESIZE,
         z: Z.LIGHTOUTER,
       });
       let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
@@ -2197,6 +2257,22 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
         align: ALIGN.HCENTER,
         text: `${guard.goal}`,
       });
+    }
+  }
+
+  function clearAt(z: number): void {
+    drawRect(x0 * TILESIZE, y0 * TILESIZE, (x1 + 1) * TILESIZE, (y1 + 1) * TILESIZE, z,
+      [0, 0, 0, 1]);
+  }
+  clearAt(Z.VISMAP);
+  clearAt(Z.VISMAPCAPTURE + 1);
+  clearAt(Z.LIGHTPASS + 1);
+  for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
+    for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
+      if (vismap[yy * w + xx]) {
+        drawRect(xx * TILESIZE, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+          [1,1,1,1]);
+      }
     }
   }
 }
