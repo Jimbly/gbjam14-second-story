@@ -3,7 +3,6 @@ GBJam14 - "Old Gold"
 
 TODO
 * playtest, buy picks
-* guard's light (and vis) slightly in front of guard
 * use player's light to change look of chests - tweak their palette to only glow when lit up
 
 Pre-prelease

@@ -58,6 +58,7 @@ import { playSound } from './sound_data';
 
 const DO_SELF_GLOW = false;
 const NOCHASE = false;
+const GUARD_LIGHT_OFFSET = 0.48;
 
 const LEVELS = {
   town: require('./town.json'), // eslint-disable-line n/global-require
@@ -68,8 +69,8 @@ const LEVELS = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { abs, asin, atan2, ceil, cos, floor, max, min, round, PI, pow, random, sin, sqrt } = Math;
 
-const DX = [1, -1, 0, 0];
-const DY = [0, 0, 1, -1];
+const DX = [0, 1, 0, -1];
+const DY = [1, 0, -1, 0];
 
 const TILESIZE = 14;
 
@@ -1790,6 +1791,7 @@ function findClosestGuard(): [number, number] {
 }
 
 const SOUND_SPATIAL_SCALE = 5;
+const lookfrom: JSVec2 = [0, 0];
 function doGuards(dt: number): void {
   let { pos: player_pos } = heist_state;
 
@@ -1800,7 +1802,7 @@ function doGuards(dt: number): void {
   });
 
 
-  let { guards, cells } = level;
+  let { guards, cells, w, h } = level;
 
   let closest_guard = findClosestGuard();
   let do_footstep = false;
@@ -1813,9 +1815,11 @@ function doGuards(dt: number): void {
       let was_chasing = Boolean(guard.chasing);
       let guard_radius = guard.chasing ? 2.75 : 2.5;
       guard.chasing = false;
-      if (v2distSq(guard.pos, player_pos) < guard_radius * guard_radius && !NOCHASE) {
+      lookfrom[0] = clamp(guard.pos[0] + sin(guard.dir * PI / 2) * GUARD_LIGHT_OFFSET, 0.5, w - 0.5);
+      lookfrom[1] = clamp(guard.pos[1] + cos(guard.dir * PI / 2) * GUARD_LIGHT_OFFSET, 0.5, h - 0.5);
+      if (v2distSq(lookfrom, player_pos) < guard_radius * guard_radius && !NOCHASE) {
         // potentially in range, do we have line of sight?
-        if (canSee(guard.pos, player_pos)) {
+        if (canSee(lookfrom, player_pos)) {
           guard.chasing = true;
           guard.goal = [floor(player_pos[0]), floor(player_pos[1])];
           guard.goal_was_chasing = true;
@@ -1870,7 +1874,11 @@ function doGuards(dt: number): void {
         } else {
           dx = guard.bit ? 1 : -1;
         }
-        assert(cells[iposy+dy][iposx+dx] === 'floor');
+        if (cells[iposy+dy][iposx+dx] !== 'floor') {
+          // something went horribly wrong, just clear goal
+          guard.goal = null;
+          continue;
+        }
       }
       assert(dx || dy);
       if (dx && dy) {
@@ -2234,19 +2242,25 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       continue;
     }
 
-    let gxi = floor(guard.pos[0]);
-    let gyi = floor(guard.pos[1]);
-    let lightx0 = max(0, gxi - 3);
-    let lighty0 = max(0, gyi - 3);
-    let lightx1 = min(w-1, gxi + 3);
-    let lighty1 = min(h-1, gyi + 3);
+    let lightxoffs = sin(guard.dir * PI / 2) * GUARD_LIGHT_OFFSET;
+    let lightyoffs = cos(guard.dir * PI / 2) * GUARD_LIGHT_OFFSET;
+    let lightx = clamp(guard.pos[0] + blend(`guard${ii}xdir`, lightxoffs), 0.5, w - 0.5);
+    let lighty = clamp(guard.pos[1] + blend(`guard${ii}ydir`, lightyoffs), 0.5, h - 0.5);
+    let lightx_screen = round(lightx * TILESIZE);
+    let lighty_screen = round(lighty * TILESIZE);
+    let lightxi = floor(lightx);
+    let lightyi = floor(lighty);
+    let lightx0 = max(0, lightxi - 3);
+    let lighty0 = max(0, lightyi - 3);
+    let lightx1 = min(w-1, lightxi + 3);
+    let lighty1 = min(h-1, lightyi + 3);
     for (let xx = lightx0; xx <= lightx1; ++xx) {
-      canSeePaint(gxi, gyi, xx, lighty0, vismap);
-      canSeePaint(gxi, gyi, xx, lighty1, vismap);
+      canSeePaint(lightxi, lightyi, xx, lighty0, vismap);
+      canSeePaint(lightxi, lightyi, xx, lighty1, vismap);
     }
     for (let yy = lighty0; yy <= lighty1; ++yy) {
-      canSeePaint(gxi, gyi, lightx0, yy, vismap);
-      canSeePaint(gxi, gyi, lightx1, yy, vismap);
+      canSeePaint(lightxi, lightyi, lightx0, yy, vismap);
+      canSeePaint(lightxi, lightyi, lightx1, yy, vismap);
     }
 
     autoAtlas('gfx', ['guard-down', 'guard-right', 'guard-up', 'guard-left'][guard.dir]).draw({
@@ -2296,8 +2310,8 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       if (1) {
         autoAtlas('gfx', 'light1').draw({
           color: [0.25, 0.25, 0.25, 1],
-          x: gx - LIGHTRAD * TILESIZE,
-          y: gy - LIGHTRAD * TILESIZE,
+          x: lightx_screen - LIGHTRAD * TILESIZE,
+          y: lighty_screen - LIGHTRAD * TILESIZE,
           w: LIGHTRAD * 2 * TILESIZE,
           h: LIGHTRAD * 2 * TILESIZE,
           z: Z.LIGHTOUTER,
@@ -2305,8 +2319,8 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       } else {
         autoAtlas('gfx', 'light2').draw({
           color: [0.25, 0.25, 0.25, 1],
-          x: (gxi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
-          y: (gyi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
+          x: (lightxi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
+          y: (lightyi + 0.5)*TILESIZE - LIGHTRAD * TILESIZE,
           w: LIGHTRAD * 2 * TILESIZE,
           h: LIGHTRAD * 2 * TILESIZE,
           z: Z.LIGHTOUTER,
@@ -2316,8 +2330,8 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
       autoAtlas('gfx', 'light1').draw({
         color: [0.5, 0.5, 0.5, 1],
-        x: gx - r,
-        y: gy - r,
+        x: lightx_screen - r,
+        y: lighty_screen - r,
         w: r * 2,
         h: r * 2,
         z: Z.LIGHTINNER,
