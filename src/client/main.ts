@@ -30,14 +30,14 @@ import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
 import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
-import { inputPadMode, keyDownEdge, KEYS } from 'glov/client/input';
+import { inputPadMode, inputTouchMode, keyDownEdge, KEYS, mouseDownOverBounds, mousePos } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
 import { settingsGet } from 'glov/client/settings';
 import { shaderCreate } from 'glov/client/shaders';
-import { spot, SPOT_DEFAULT_BUTTON } from 'glov/client/spot';
+import { spot, SPOT_DEFAULT_BUTTON, SPOT_STATE_DOWN } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import { Shader, Sprite, spriteCreate, spriteQueueRaw4, Texture } from 'glov/client/sprites';
 import { textureBlack } from 'glov/client/textures';
@@ -52,10 +52,12 @@ import {
 } from 'glov/client/ui';
 import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { vec2, Vec4, vec4 } from 'glov/common/vmath';
+import { v2dist, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
+  ActionKey,
+  actionTriggerEdge,
   bindsInit,
 } from './binds';
 import { blend } from './blend';
@@ -80,10 +82,12 @@ import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
+const { atan2, ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.REPALETTE = 99999;
+Z.BORDERS = 100001;
+Z.CONTROLS = 100002;
 
 
 const ORIGIN_CENTER = vec2(0.5, 0.5);
@@ -638,7 +642,8 @@ function drawPicks(): void {
     let spot_ret = spot({
       def: SPOT_DEFAULT_BUTTON,
       button_long_press: true,
-      disabled,
+      disabled: true, // no touch/mouse controls for now
+      disabled_focusable: false,
       ...rect,
     });
     if (spot_ret.focused) {
@@ -786,7 +791,7 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
 }
 
 function stateLockPick(dt: number): void {
-  autoAtlas('gfx', inputPadMode() ? 'lockpick-bg' : 'lockpick-bg-kb').draw({
+  autoAtlas('gfx', inputPadMode() ? 'lockpick-bg' : inputTouchMode() ? 'lockpick-bg-touch' : 'lockpick-bg-kb').draw({
     x: 0, y: 0, w: game_width, h: game_height,
     z: Z.BACKGROUND,
   });
@@ -822,7 +827,141 @@ function stateLockPick(dt: number): void {
   }
 }
 
+const CONTROLS_W = 50;
+const CONTROLS_H = 50;
+let mode_vert = false;
+let show_controls = true;
+function preTickCB(): void {
+  let aspect = game_width / game_height;
+  let screen_aspect = engine.width / engine.height;
+  show_controls = settingsGet('touch_controls') || inputTouchMode();
+  if (!show_controls) {
+    engine.setRenderDims(game_width, game_height);
+  } else if (screen_aspect > aspect) {
+    mode_vert = false;
+    let total_w = floor(game_height * screen_aspect);
+    engine.setRenderDims(max(game_width + CONTROLS_W * 2, total_w), game_height);
+  } else {
+    mode_vert = true;
+    let total_h = floor(game_width / screen_aspect);
+    engine.setRenderDims(game_width, max(game_height + CONTROLS_H, total_h));
+  }
+}
+
+export function setUICamera(): void {
+  camera2d.setAspectFixed(game_width, game_height);
+  camera2d.shift(0, -camera2d.y0());
+}
+
+const DPADS = [
+  ['down'],
+  ['down', 'right'],
+  ['right'],
+  ['right', 'up'],
+  ['up'],
+  ['up', 'left'],
+  ['left'],
+  ['left', 'down'],
+  [],
+] as const;
+const DPAD_NONE = DPADS[8];
+let last_dpad: readonly ActionKey[] = DPAD_NONE;
+let last_accept = false;
+let last_cancel = false;
+function onScreenControls(): void {
+  if (!show_controls) {
+    return;
+  }
+  let dpadx = 11;
+  let dpady = camera2d.y1() - 49;
+  let buttonx = 95;
+  let buttony = camera2d.y1() - 29;
+  let buttondx = 33;
+  let buttondy = 16;
+  if (!mode_vert) {
+    dpadx = camera2d.x0();
+    dpady = game_height - 48 - 4;
+    buttonx = camera2d.x1() - CONTROLS_W + 1;
+    buttony = game_height - 28 - 4;
+    buttondx = CONTROLS_W - 28 - 1;
+    buttondy += 10;
+  }
+  let dpad = {
+    x: dpadx, y: dpady, z: Z.CONTROLS,
+    w: 48, h: 48,
+  };
+  let button_accept = {
+    x: buttonx, y: buttony, z: Z.CONTROLS,
+    w: 28, h: 28,
+  };
+  let button_cancel = {
+    x: buttonx + buttondx, y: buttony - buttondy, z: Z.CONTROLS,
+    w: 28, h: 28,
+  };
+  let spot_button_accept = spot({
+    def: SPOT_DEFAULT_BUTTON,
+    ...button_accept,
+    sound_button: null,
+    sound_rollover: null,
+  });
+  let spot_button_cancel = spot({
+    def: SPOT_DEFAULT_BUTTON,
+    ...button_cancel,
+    sound_button: null,
+    sound_rollover: null,
+  });
+
+  let accept_down = spot_button_accept.spot_state === SPOT_STATE_DOWN;
+  if (accept_down !== last_accept) {
+    last_accept = accept_down;
+    actionTriggerEdge('accept', accept_down);
+  }
+  let cancel_down = spot_button_cancel.spot_state === SPOT_STATE_DOWN;
+  if (cancel_down !== last_cancel) {
+    last_cancel = cancel_down;
+    actionTriggerEdge('cancel', cancel_down);
+  }
+
+  let dpaddir: readonly ActionKey[] = DPAD_NONE;
+  if (mouseDownOverBounds({
+    x: -1000, w: 1000 + game_width / 2,
+    y: -1000, h: 2000
+  })) {
+    let pos = mousePos();
+    let delta = v2sub([0,0], pos, [dpad.x + dpad.w/2, dpad.y + dpad.h/2]);
+    if (v2length(delta) < 50) {
+      let angle = atan2(delta[0], delta[1]);
+      angle += PI/8;
+      while (angle < 0) {
+        angle += PI * 2;
+      }
+      angle = floor(angle / (2*PI) * 8);
+      dpaddir = DPADS[angle];
+    }
+  }
+  if (dpaddir !== last_dpad) {
+    for (let ii = 0; ii < dpaddir.length; ++ii) {
+      let dir = dpaddir[ii];
+      if (!last_dpad.includes(dir)) {
+        actionTriggerEdge(dir, true);
+      }
+    }
+    for (let ii = 0; ii < last_dpad.length; ++ii) {
+      let dir = last_dpad[ii];
+      if (!dpaddir.includes(dir)) {
+        actionTriggerEdge(dir, false);
+      }
+    }
+    last_dpad = dpaddir;
+  }
+
+  autoAtlas('gfx', 'dpad').draw(dpad);
+  autoAtlas('gfx', accept_down ? 'button-b-down' : 'button-b').draw(button_accept);
+  autoAtlas('gfx', cancel_down ? 'button-a-down' : 'button-a').draw(button_cancel);
+}
+
 let last_pal: Vec4[];
+const border_color = toVec4(0xc2bebbff);
 export function topOfFrame(is_title: boolean): void {
   if (engine.DEBUG) {
     if (keyDownEdge(KEYS.MINUS)) {
@@ -834,7 +973,8 @@ export function topOfFrame(is_title: boolean): void {
   }
 
   tickMusic('music');
-  camera2d.setAspectFixed(game_width, game_height);
+  setUICamera();
+  drawRect(0, 0, game_width, game_height, Z.CLEARBG, palette[0]);
   let pal: Vec4[] = last_pal && palette_lock ? last_pal :
     color_pal_idx_override !== -1 ? COLOR_PALETTES[color_pal_idx_override] :
     settingsGet('palette') ? PALETTE_GB :
@@ -859,7 +999,15 @@ export function topOfFrame(is_title: boolean): void {
       },
     });
   });
+
+  drawRect(camera2d.x0Real(), camera2d.y0Real(), camera2d.x1Real(), 0, Z.BORDERS, border_color);
+  drawRect(camera2d.x0Real(), game_height, camera2d.x1Real(), camera2d.y1Real(), Z.BORDERS, border_color);
+  drawRect(camera2d.x0Real(), 0, 0, game_height, Z.BORDERS, border_color);
+  drawRect(game_width, 0, camera2d.x1Real(), game_height, Z.BORDERS, border_color);
+
   actionCheckBinds();
+
+  onScreenControls();
 }
 
 export function startUnlocking(num_tumblers: number, pick_state_in: PickState | null): PickState {
@@ -1026,6 +1174,7 @@ export function main(): void {
     pixel_perfect,
     show_fps: false,
     ui_sounds: SOUND_DATA,
+    do_borders: false,
   })) {
     return;
   }
@@ -1036,6 +1185,9 @@ export function main(): void {
   scaleSizes(13 / 32);
   setFontHeight(9);
   setPanelPixelScale(1);
+
+  engine.addPreTickFunc(preTickCB);
+  v4copy(engine.border_clear_color, border_color);
 
   init();
 

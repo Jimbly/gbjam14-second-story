@@ -49,6 +49,7 @@ import {
   queueTransitionDither,
   queueTransitionDitherUpDown,
   randInt,
+  setUICamera,
   startUnlocking
 } from './main';
 import { optionsMenu } from './options';
@@ -309,7 +310,7 @@ class Level {
   }
 }
 
-
+Z.CLEARBG = 1;
 Z.VISMAP = 10;
 Z.VISMAPCAPTURE = 14;
 Z.LIGHTOUTER = 20;
@@ -2129,9 +2130,20 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   let hy = round(pos[1] * TILESIZE);
   let centerx = floor(rect.x + rect.w/2);
   let centery = floor(rect.y + rect.h/2);
+  let mapped_box = {
+    x: 0, y: 0, w: 0, h: 0,
+  };
+  camera2d.virtualToDomPosParam(mapped_box, {
+    x: 0, y: 0,
+    w: game_width, h: game_height,
+  });
   camera2d.shift(
     clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
     clamp(-centery + hy, -rect.y, level.h * TILESIZE - rect.h));
+  let mapped_pos0 = [0,0];
+  camera2d.domToVirtual(mapped_pos0, [mapped_box.x, mapped_box.y]);
+  let mapped_pos1 = [0,0];
+  camera2d.domToVirtual(mapped_pos1, [mapped_box.x + mapped_box.w, mapped_box.y + mapped_box.h]);
 
   effectsQueue(Z.LIGHTPASS, lightPassCapture);
   effectsQueue(Z.VISMAPCAPTURE, vismapCapture);
@@ -2156,10 +2168,10 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     });
   }
 
-  let x0 = floor(camera2d.x0() / TILESIZE);
-  let x1 = floor(camera2d.x1() / TILESIZE);
-  let y0 = floor(camera2d.y0() / TILESIZE);
-  let y1 = floor(camera2d.y1() / TILESIZE);
+  let x0 = floor(mapped_pos0[0] / TILESIZE);
+  let x1 = floor(mapped_pos1[0] / TILESIZE);
+  let y0 = floor(mapped_pos0[1] / TILESIZE);
+  let y1 = floor(mapped_pos1[1] / TILESIZE);
   let { tiles, chests, guards, w, h } = level;
   for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
     for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
@@ -2345,11 +2357,11 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
               unit_vec);
           }
           if ((v & VIS_FROM_LEFT) && cellIsOpen(xx-1, yy)) {
-            drawRect(xx * TILESIZE, yy * TILESIZE, xx * TILESIZE + 2, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+            drawRect(xx * TILESIZE, yy * TILESIZE, xx * TILESIZE + 3, (yy + 1) * TILESIZE, Z.VISMAP + 1,
               unit_vec);
           }
           if ((v & VIS_FROM_RIGHT) && cellIsOpen(xx+1, yy)) {
-            drawRect((xx + 1) * TILESIZE - 2, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
+            drawRect((xx + 1) * TILESIZE - 3, yy * TILESIZE, (xx + 1) * TILESIZE, (yy + 1) * TILESIZE, Z.VISMAP + 1,
               unit_vec);
           }
         }
@@ -2432,7 +2444,7 @@ export function doHeistView(dt: number, rect: UIBox): void {
 
   doFloaters(dt);
 
-  camera2d.setAspectFixed(game_width, game_height);
+  setUICamera();
 }
 
 export function stateHeist(dt: number, is_town: boolean):void {
@@ -2443,7 +2455,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
   if (transitionActive()) {
     dt = 0;
   }
-  camera2d.setAspectFixed(game_width, game_height);
+  setUICamera();
   let { unlocking, caught } = heist_state;
   let unpaused_dt = unlocking !== -1 || dialogMoveLocked() || caught ? 0 : dt;
   if (!is_town) {
@@ -2471,7 +2483,7 @@ export function stateHeist(dt: number, is_town: boolean):void {
 
   doFloaters(dt);
   // camera back to normal for HUD
-  camera2d.setAspectFixed(game_width, game_height);
+  setUICamera();
   drawHeistHUD(dt, is_town);
 
   if (!dialogMoveLocked() && actionEdge('cancel')) {

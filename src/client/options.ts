@@ -13,10 +13,16 @@ const { floor, min, round } = Math;
 
 declare module 'glov/client/settings' {
   let palette: number;
+  let touch_controls: number;
 }
 
 settingsRegister({
   palette: {
+    default_value: 0,
+    type: cmd_parse.TYPE_INT,
+    range: [0,1],
+  },
+  touch_controls: {
     default_value: 0,
     type: cmd_parse.TYPE_INT,
     range: [0,1],
@@ -32,7 +38,7 @@ function stateOptionsMenu(dt: number): void {
 
   let W = game_width;
 
-  let num_buttons = options_from === 'title' ? 4 : 5;
+  let num_buttons = options_from === 'title' ? 5 : 6;
   if (actionEdge('up')) {
     selection = (selection - 1 + num_buttons) % num_buttons;
     playSound('rollover');
@@ -136,6 +142,22 @@ function stateOptionsMenu(dt: number): void {
   if (selection === selidx) {
     if (actionEdge('accept') || actionEdge('left') || actionEdge('right')) {
       settingsSet('palette', 1 - settingsGet('palette'));
+      playSound('button_click');
+    }
+  }
+  ++selidx;
+  y += button_h + 2;
+
+  font.draw({
+    ...button_param,
+    y,
+    color: palette_font[selection === selidx ? 3 : 2],
+    text: `TOUCH: ${settingsGet('touch_controls') ? 'ON' : 'AUTO'}`,
+  });
+  indicator();
+  if (selection === selidx) {
+    if (actionEdge('accept') || actionEdge('left') || actionEdge('right')) {
+      settingsSet('touch_controls', 1 - settingsGet('touch_controls'));
       playSound('button_click');
     }
   }

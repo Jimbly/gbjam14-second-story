@@ -50,6 +50,17 @@ export function actionBindPad(pad: keyof typeof PAD, action_key: ActionKey): voi
   });
 }
 
+export function actionTriggerEdge(action_key: ActionKey, is_down: boolean): void {
+  let action = action_state[action_key];
+  assert(action);
+  if (is_down) {
+    action.down_edge++;
+    action.down++;
+  } else {
+    action.down = max(0, action.down - 1);
+  }
+}
+
 export function actionCheckBinds(): void {
   for (let key in action_state) {
     let action = action_state[key as ActionKey];
