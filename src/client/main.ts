@@ -29,7 +29,7 @@ import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
-import { ALIGN, Font, fontCreate, fontStyle, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
 import { inputPadMode, keyDownEdge, KEYS } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
@@ -59,7 +59,7 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import {
   curMap,
@@ -83,7 +83,6 @@ const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
-Z.DIALOG = 100;
 Z.REPALETTE = 99999;
 
 

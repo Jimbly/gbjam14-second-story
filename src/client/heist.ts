@@ -2,12 +2,21 @@ import assert from 'assert';
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
+import { applyCopy, effectsIsFinal, effectsQueue } from 'glov/client/effects';
 import { DEBUG, getFrameTimestamp } from 'glov/client/engine';
 import { ALIGN, fontStyle } from 'glov/client/font';
+import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
 import { sound3DListener, soundPlay } from 'glov/client/sound';
-import { BLEND_ADDITIVE, spriteClipPop, spriteClipPush } from 'glov/client/sprites';
+import {
+  BLEND_ADDITIVE,
+  blendModeSet,
+  spriteClipPop,
+  spriteClipPush,
+  spriteQueueFn,
+  Texture,
+} from 'glov/client/sprites';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawBox, drawLine, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate, shuffleArray } from 'glov/common/rand_alea';
@@ -301,7 +310,10 @@ class Level {
 }
 
 
-Z.BACKGROUND = 1;
+Z.LIGHTOUTER = 1;
+Z.LIGHTINNER = 2;
+Z.LIGHTPASS = 3;
+Z.BACKGROUND = 4;
 Z.WALLS = 5;
 Z.CHESTS = 5;
 Z.DOORS = 9;
@@ -309,6 +321,7 @@ Z.LIGHT = 20;
 Z.HERO = 30;
 Z.GUARDS = 31;
 Z.CEILING = 40;
+Z.DIALOG = 100;
 Z.FLOATERS = 150;
 
 const TILE_Z: Rec<string, number> = {
@@ -2019,6 +2032,29 @@ export function doTimer(dt: number): void {
   }
 }
 
+let lightpass: Texture;
+function lightPassCapture(): void {
+  lightpass = framebufferEnd();
+  // if (lightpass.fbo) {
+  //   // new framebuffer bound, effectively cleared, need to blit this to it!
+  //   applyCopy({ source: lightpass, final: effectsIsFinal() });
+  // } else {
+  framebufferStart({
+    width: lightpass.width,
+    height: lightpass.height,
+    final: effectsIsFinal(),
+  });
+  // }
+}
+
+function lightPassApply(): void {
+  blendModeSet(BLEND_ADDITIVE);
+  applyCopy({
+    source: lightpass,
+    no_framebuffer: true,
+  });
+}
+
 function doHeistViewSub(rect: UIBox, dt: number): void {
   let { pos } = heist_state;
 
@@ -2029,6 +2065,9 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   camera2d.shift(
     clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
     clamp(-centery + hy, -rect.y, level.h * TILESIZE - rect.h));
+
+  effectsQueue(Z.LIGHTPASS, lightPassCapture);
+  spriteQueueFn(Z.LIGHT, lightPassApply);
 
   autoAtlas('gfx', ['hero-down', 'hero-right', 'hero-up', 'hero-left'][heist_state.dir]).draw({
     x: hx - TILESIZE/2,
@@ -2132,23 +2171,21 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       });
     } else {
       autoAtlas('gfx', 'light1').draw({
-        color: [1, 1, 1, 0.25],
+        color: [0.25, 0.25, 0.25, 1],
         x: gx - 35,
         y: gy - 35,
         w: 70,
         h: 70,
-        blend: BLEND_ADDITIVE,
-        z: Z.LIGHT,
+        z: Z.LIGHTOUTER,
       });
       let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
       autoAtlas('gfx', 'light1').draw({
-        color: [1, 1, 1, 0.25],
+        color: [0.5, 0.5, 0.5, 1],
         x: gx - r,
         y: gy - r,
         w: r * 2,
         h: r * 2,
-        blend: BLEND_ADDITIVE,
-        z: Z.LIGHT,
+        z: Z.LIGHTINNER,
       });
     }
     if (DEBUG && false) {
