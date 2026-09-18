@@ -410,7 +410,7 @@ class PlayerState {
   money = 0;
   num_picks = 2;
   goal: GoalID = 'intro0';
-  mode: 'status' | 'unlock' | 'heist' | 'town' = 'status';
+  mode: 'unlock' | 'heist' | 'town' = 'town';
   is_flipped: boolean[] = [];
   picks: number[] = [];
   heists: number[] = [];
@@ -1029,7 +1029,8 @@ export function topOfFrame(is_title: boolean): void {
     }
   }
 
-  tickMusic('music');
+  tickMusic(is_title || player_state.mode === 'town' || isJailbreak() ? 'music' :
+    player_state.mode === 'unlock' ? 'heist_combat' : 'heist_explore');
   setUICamera();
   drawRect(0, 0, game_width, game_height, Z.CLEARBG, palette[0]);
   let pal: Vec4[] = last_pal && palette_lock ? last_pal :
@@ -1272,11 +1273,11 @@ export function main(): void {
     }
     loadGame();
 
-    engine.setState(statePlay);
+    // engine.setState(statePlay);
     // player_state.num_picks = 10;
-    startHeist(3);
+    startHeist(0);
     // startTown(false, false);
-    startUnlocking(10, null);
+    // startUnlocking(10, null);
     // dialog('informant');
   }
 }
