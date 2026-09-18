@@ -288,6 +288,7 @@ function fadeDither(
 
 const TRANSITION_TIME = 250;
 export function queueTransitionDither(time?: number): void {
+  palette_lock = false;
   if (engine.getFrameIndex() > 1) {
     transition.queue(Z.TRANSITION_FINAL, fadeDither.bind(null, time || TRANSITION_TIME, false));
   }
@@ -1020,7 +1021,7 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    // loadGame();
+    loadGame();
 
     // engine.setState(statePlay);
     // player_state.num_picks = 10;

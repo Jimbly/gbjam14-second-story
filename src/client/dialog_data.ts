@@ -284,7 +284,7 @@ dialogRegister({
         )
       );
     } else if (player_state.goal === 'search1') {
-      dialogLine(INFORMANT, 'Foulmouth lives in the Slums.');
+      signWithName(INFORMANT, 'Foulmouth lives in the Slums.');
     } else if (player_state.goal === 'find2a') {
       player_state.goal = 'find2b';
       dialogLine(INFORMANT, 'Strongfist? He lives in the merchant quarter.',
@@ -294,9 +294,9 @@ dialogRegister({
         )
       );
     } else if (player_state.goal === 'find2b' || player_state.goal === 'search2') {
-      dialogLine(INFORMANT, 'Strongfist? He lives in the merchant quarter.');
+      signWithName(INFORMANT, 'Strongfist? He lives in the merchant quarter.');
     } else if (player_state.goal === 'buytreat') {
-      dialogLine(INFORMANT, 'Vicious guard animals? Check the shop, they might have something to help.');
+      signWithName(INFORMANT, 'Vicious guard animals? Check the shop, they might have something to help.');
     } else if (player_state.goal === 'find3a') {
       player_state.goal = 'find3b';
       dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.',
@@ -305,7 +305,7 @@ dialogRegister({
         )
       );
     } else if (player_state.goal === 'find3b') {
-      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.');
+      signWithName(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.');
     } else if (player_state.goal === 'find3c') {
       player_state.goal = 'buygift';
       dialogLine(INFORMANT, 'Ramirrors Palace private security? They\'re a tough bunch, but I hear one of them lost a month\'s wages and is in desperate need of a gift to sooth his wife...',
@@ -314,11 +314,11 @@ dialogRegister({
         )
       );
     } else if (player_state.goal === 'buygift') {
-      dialogLine(INFORMANT, 'I thought I was pretty clear: go check the SHOP for a gift for the guard\'s wife.');
+      signWithName(INFORMANT, 'I thought I was pretty clear: go check the SHOP for a gift for the guard\'s wife.');
     } else if (player_state.goal === 'search3') {
-      dialogLine(INFORMANT, 'Have fun storming the castle!');
+      signWithName(INFORMANT, 'Have fun storming the castle!');
     } else if (player_state.goal === 'outtahere') {
-      dialogLine(INFORMANT, 'Nice working with you, best of luck on your future endeavors!');
+      signWithName(INFORMANT, 'Nice working with you, best of luck on your future endeavors!');
     }
   },
   special1: function () {

@@ -1883,6 +1883,10 @@ export function isJailbreak(): boolean {
   return level && level.jailbreak;
 }
 
+export function playerPos(): JSVec2 {
+  return heist_state.pos;
+}
+
 export function finishUnlocking(success: boolean, bonus: number, partial_progress: number): void {
   if (level.jailbreak) {
     if (success) {

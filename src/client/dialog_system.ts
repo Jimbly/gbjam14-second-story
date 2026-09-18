@@ -47,10 +47,13 @@ import { dataError } from 'glov/common/data_error';
 import { TSMap, WithRequired } from 'glov/common/types';
 import { merge } from 'glov/common/util';
 import {
+  JSVec2,
+  v2distSq,
   vec4,
 } from 'glov/common/vmath';
 import { actionEdge } from './binds';
 import { FONT_HEIGHT } from './globals';
+import { playerPos } from './heist';
 import { getPaletteFont } from './main';
 
 const { ceil, max, min, round } = Math;
@@ -90,6 +93,7 @@ class DialogState {
   ff_down = true;
   buttons_vis = false;
   selected = 0;
+  player_pos = playerPos().slice(0) as JSVec2;
 }
 let active_state: DialogState;
 
@@ -267,6 +271,7 @@ export function dialogRun(
   }
   let {
     transient,
+    transient_dist,
     transient_long,
     custom_render,
     text,
@@ -289,7 +294,8 @@ export function dialogRun(
   active_state.counter += dt;
   let { counter } = active_state;
   if (transient && !active_state.fade_time) {
-    if (/*player moved*/false) {
+    transient_dist = transient_dist || 1;
+    if (v2distSq(active_state.player_pos, playerPos()) >= transient_dist * transient_dist) {
       active_state.fade_time = transient_long ? 3000 : FADE_TIME;
     }
   }
