@@ -58,7 +58,7 @@ import { getPaletteFont } from './main';
 
 const { ceil, max, min, round } = Math;
 
-const FADE_TIME = 1000;
+const FADE_TIME = 250;
 const MS_PER_CHARACTER = 12;
 const MS_PER_CHARACTER_CENTERED = 6;
 

@@ -9,7 +9,6 @@ Pre-prelease
 * re-check seeds for all special houses
 
 Stretch
-* add custom name renderer
 * breaking (only in med/hard?) and repairing lockpicks
 * additional time upgrade?
 * floors are actually black when neither you nor guard is nearby?

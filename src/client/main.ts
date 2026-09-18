@@ -29,7 +29,7 @@ import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
-import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import { ALIGN, Font, fontCreate, fontStyle, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
 import { inputPadMode, keyDownEdge, KEYS } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
@@ -44,11 +44,12 @@ import { textureBlack } from 'glov/client/textures';
 import * as transition from 'glov/client/transition';
 import {
   drawBox,
+  PanelParam,
   scaleSizes,
   setFontHeight,
   setPanelPixelScale,
 } from 'glov/client/ui';
-import { Rec } from 'glov/common/types';
+import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
 import { vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
@@ -58,7 +59,7 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialogMoveLocked, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import {
   curMap,
@@ -82,6 +83,7 @@ const { ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
+Z.DIALOG = 100;
 Z.REPALETTE = 99999;
 
 
@@ -962,6 +964,39 @@ export function canLoad(): boolean {
   return Boolean(localStorageGet('savegame'));
 }
 
+function nameRender(dialogparam: WithRequired<DialogParam, 'name'>, panel: PanelParam): void {
+  let box = {
+    x: panel.x + 8,
+    y: panel.y - 12,
+    h: 14,
+  };
+  let z = panel.z! + 1;
+  let draw_param = {
+    ...box,
+    y: box.y + 1,
+    z: z + 2,
+    style: font_style1,
+    align: ALIGN.VCENTER,
+    text: dialogparam.name,
+    alpha: panel.color![3],
+  };
+  let text_w = font.draw(draw_param);
+  draw_param.style = font_style0;
+  draw_param.z--;
+  draw_param.y++;
+  font.draw(draw_param);
+  draw_param.x++;
+  font.draw(draw_param);
+  draw_param.y--;
+  font.draw(draw_param);
+  drawBox({
+    ...box,
+    x: box.x - 5,
+    w: text_w + 10,
+    z,
+  }, autoAtlas('gfx', 'nameplate'), 1, panel.color);
+}
+
 export function main(): void {
   if (platformParameterGet('reload_updates') && engine.DEBUG) {
     // Enable auto-reload, etc
@@ -1010,6 +1045,7 @@ export function main(): void {
   dialogStartup({
     font,
     style_default: font_style1,
+    name_render_cb: nameRender,
   });
 
   // preload
@@ -1028,6 +1064,6 @@ export function main(): void {
     // startHeist(0);
     // startTown(false, false);
     // startUnlocking(3, null);
-    // dialog('informant');
+    dialog('informant');
   }
 }
