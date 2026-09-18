@@ -202,14 +202,14 @@ dialogRegister({
   shop: function (param: string) {
     let player_state = playerState();
     let buttons: DialogButton[] = [{
-      label: 'ANOTHER LOCKPICK - [c=1]500[/c]G',
+      label: 'ADVANCED LOCKPICK - [c=1]200[/c]G',
       cb: function () {
-        if (player_state.money < 500) {
+        if (player_state.money < 200) {
           dialog('cannotafford');
         } else if (player_state.num_picks === 10) {
           dialog('maxpicks');
         } else {
-          player_state.money -= 500;
+          player_state.money -= 200;
           player_state.num_picks++;
           dialog('shop');
         }
@@ -234,7 +234,7 @@ dialogRegister({
           } else {
             player_state.money -= extra_cost;
             player_state.goal = GOAL_LIST[GOAL_LIST.indexOf(player_state.goal) + 1];
-            playerFloater('PURCHASED!');
+            playerFloater('[c=3]PURCHASED![/c]');
           }
         }
       });
@@ -288,7 +288,7 @@ dialogRegister({
     } else if (player_state.goal === 'find2a') {
       player_state.goal = 'find2b';
       dialogLine(INFORMANT, 'Strongfist? He lives in the merchant quarter.',
-        dialogLine.bind(null, HERO, 'Thanks, here\'s 400G',
+        dialogLine.bind(null, HERO, 'Thanks, here\'s 400G.',
           dialogLine.bind(null, INFORMANT, 'Ah, no worries, my wallet\'s still full, this one\'s on the house!'
           )
         )
@@ -299,13 +299,13 @@ dialogRegister({
       signWithName(INFORMANT, 'Vicious guard animals? Check the shop, they might have something to help.');
     } else if (player_state.goal === 'find3a') {
       player_state.goal = 'find3b';
-      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.',
-        dialogLine.bind(null, HERO, 'Thanks, here\'s 400G',
+      dialogLine(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on Old Money Row.',
+        dialogLine.bind(null, HERO, 'Thanks, here\'s 400G.',
           dialogLine.bind(null, INFORMANT, 'Ah, no worries, I\'ve still got your last gift here.')
         )
       );
     } else if (player_state.goal === 'find3b') {
-      signWithName(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on the Old Money row.');
+      signWithName(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on Old Money Row.');
     } else if (player_state.goal === 'find3c') {
       player_state.goal = 'buygift';
       dialogLine(INFORMANT, 'Ramirrors Palace private security? They\'re a tough bunch, but I hear one of them lost a month\'s wages and is in desperate need of a gift to sooth his wife...',
@@ -322,11 +322,11 @@ dialogRegister({
     }
   },
   special1: function () {
-    dialogLine(HERO, 'A receipt for payment to deliver an order to [c=0]Bignoes Strongfist[/c] on the night of my mugging, this must be it!');
+    dialogLine(HERO, 'A receipt for payment to deliver instructions to [c=0]Bignoes Strongfist[/c] on the night of my mugging, this must be it!');
   },
   special2: function () {
     dialogLine(HERO, 'An order from his boss asking him to set up the hit!',
-      dialogLine.bind(null, HERO, 'Hmm, Strongfist did the deed, but it appears he was paid by my old friend Ramirrors...\n\n' +
+      dialogLine.bind(null, HERO, 'Hmm, Strongfist did the deed, but it appears he was paid by my old friend [c=0]Ramirrors[/c]...\n\n' +
         'Now that I know who\'s behind this, I\'ll make sure to leave him penniless.')
     );
   },

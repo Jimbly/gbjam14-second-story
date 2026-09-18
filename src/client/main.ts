@@ -702,7 +702,7 @@ function drawPicks(): void {
       disabled_focusable: false,
       ...rect,
     });
-    if (spot_ret.focused) {
+    if (spot_ret.focused && false) {
       pick_state.selected = ii;
     }
     let selected = ii === pick_state.selected;
@@ -1275,7 +1275,7 @@ export function main(): void {
 
     // engine.setState(statePlay);
     // player_state.num_picks = 10;
-    startHeist(0);
+    // startHeist(0);
     // startTown(false, false);
     // startUnlocking(10, null);
     // dialog('informant');

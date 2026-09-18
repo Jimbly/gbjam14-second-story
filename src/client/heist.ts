@@ -92,50 +92,50 @@ const HEISTS = [{
   alert_time: 30000,
   chests: 8, // $720
   chests_locked: 4,
-  chest_value_simple: 65,
-  chest_value_locked: 115,
+  chest_value_simple: 60,
+  chest_value_locked: 120,
   tumblers: [4, 1], // [base + range*2]
-  fixed_seed: 0,
-  intro_dialog: '',
-  double_bonus: 20,
-}, {
-  guards_initial: 2,
-  guards_total: 6,
-  w: 50,
-  h: 40,
-  room_min_w: 3,
-  room_min_h: 3,
-  room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
-  room_max_area: 10*8, // subdivide if larger than this
-  heist_time: 120000,
-  alert_time: 30000,
-  chests: 10, // $1500
-  chests_locked: 5,
-  chest_value_simple: 100,
-  chest_value_locked: 200,
-  tumblers: [6, 1], // [base + range*2]
   fixed_seed: 0,
   intro_dialog: '',
   double_bonus: 30,
 }, {
   guards_initial: 2,
-  guards_total: 12,
+  guards_total: 6,
+  w: 44,
+  h: 38,
+  room_min_w: 3,
+  room_min_h: 3,
+  room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
+  room_max_area: 10*8, // subdivide if larger than this
+  heist_time: 160000,
+  alert_time: 30000,
+  chests: 10, // $1500
+  chests_locked: 5,
+  chest_value_simple: 80,
+  chest_value_locked: 180,
+  tumblers: [6, 1], // [base + range*2]
+  fixed_seed: 0,
+  intro_dialog: '',
+  double_bonus: 50,
+}, {
+  guards_initial: 2,
+  guards_total: 10,
   w: 50,
   h: 40,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 21], // [base + range] - do not subdivide if would be larger than this
   room_max_area: 10*8, // subdivide if larger than this
-  heist_time: 120000,
-  alert_time: 30000,
+  heist_time: 270000,
+  alert_time: 45000,
   chests: 12, // $3000
   chests_locked: 8,
-  chest_value_simple: 150,
-  chest_value_locked: 300,
+  chest_value_simple: 130,
+  chest_value_locked: 280,
   tumblers: [6, 2], // [base + range*2]
   fixed_seed: 0,
   intro_dialog: '',
-  double_bonus: 40,
+  double_bonus: 75,
 }, {
   // special house #1
   guards_initial: 2,
@@ -1496,7 +1496,9 @@ function doMotion(dt: number, is_town: boolean): void {
   }
   heist_state.was_on_chest = on_chest;
 
-  if (!unopened_chests && !heist_state.did_thats_all && !is_town && !level.jailbreak && dt) {
+  if (!unopened_chests && !heist_state.did_thats_all && !heist_state.floaters.length &&
+    !is_town && !level.jailbreak && dt
+  ) {
     heist_state.did_thats_all = true;
     playSound('thatsall');
     playerFloater('[c=3]THAT\'S EVERYTHING!');
@@ -1910,6 +1912,9 @@ function doGuards(dt: number): void {
         if (abs(guard.goal[0] + 0.5 - guard.pos[0]) + abs(guard.goal[1] + 0.5 - guard.pos[1]) <= 0.1) {
           guard.goal = null;
           guard.goal_was_chasing = false;
+          if (!guard.chasing) {
+            guard.pause = 600;
+          }
         }
       }
     }
@@ -1936,7 +1941,7 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
   let x = 0;
   let y = 0;
   let h = 11;
-  let w = 66;
+  let w = 67;
   let z = Z.UI;
   if (is_town) {
     // show money?
@@ -1949,7 +1954,7 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
     let eff_loot = blend('loot', loot);
     markdownAuto({
       x: x + 2, y: y + 2, z: z + 1, w, h,
-      text: `[c=2]LOOT: [c=3]${round(eff_loot)}G[/c][/c]`,
+      text: `[c=2]LOOT: [c=3]${round(eff_loot)}${heist_state.did_thats_all ? '*' : 'G'}[/c][/c]`,
     });
   }
 
@@ -2383,7 +2388,7 @@ function doFloaters(dt: number): void {
     let t = floater.t / 1000;
     if (t >= 1) {
       floaters.splice(ii, 1);
-      if (heist_state.unlocking !== -1) {
+      if (heist_state.unlocking !== -1 && playerState().mode !== 'unlock') {
         // start unlocking game
         let chest = chests[heist_state.unlocking];
         chest.pick_state = startUnlocking(chest.tumblers, chest.pick_state);

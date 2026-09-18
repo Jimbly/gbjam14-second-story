@@ -3,7 +3,8 @@ GBJam14 - "Old Gold"
 
 TODO
 * playtest, buy picks
-  * is it annoying not knowing if we have a match? should this be a single purchase for a full set of picks?
+* guard's light (and vis) slightly in front of guard
+* use player's light to change look of chests - tweak their palette to only glow when lit up
 
 Pre-prelease
 * re-check seeds for all special houses
@@ -14,3 +15,4 @@ Stretch
 * static torches (in town too, at least indoors)
 * additional wall and floor sets?
 * detail more pick gfx
+* guard cone of visibility?
