@@ -29,12 +29,20 @@ import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
 import { applyCopy, effectsIsFinal, effectsQueue, registerShader } from 'glov/client/effects';
 import * as engine from 'glov/client/engine';
-import { ALIGN, Font, fontCreate, fontStyleColored, vec4ColorFromIntColor } from 'glov/client/font';
+import {
+  ALIGN,
+  Font,
+  fontCreate,
+  fontStyle,
+  FontStyle,
+  fontStyleColored,
+  vec4ColorFromIntColor,
+} from 'glov/client/font';
 import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { inputPadMode, inputTouchMode, keyDownEdge, KEYS, mouseDownOverBounds, mousePos } from 'glov/client/input';
 import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/client/local_storage';
 import { markdownAuto } from 'glov/client/markdown';
-import { markdownSetColorStyles } from 'glov/client/markdown_renderables';
+import { markdownSetColorStyle, markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
 import { settingsGet } from 'glov/client/settings';
 import { shaderCreate } from 'glov/client/shaders';
@@ -62,7 +70,7 @@ import {
   bindsInit,
 } from './binds';
 import { blend } from './blend';
-import './dialog_data'; // side effects
+import { HERO } from './dialog_data';
 import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import {
@@ -208,6 +216,16 @@ const font_style0 = fontStyleColored(null, palette_font[0]);
 const font_style1 = fontStyleColored(null, palette_font[1]);
 const font_style2 = fontStyleColored(null, palette_font[2]);
 const font_style3 = fontStyleColored(null, palette_font[3]);
+const font_style_hero = fontStyle(null, {
+  color: palette_font[0],
+  outline_color: palette_font[2],
+  outline_width: 2.5,
+});
+const font_style_hero_bold = fontStyle(null, {
+  color: palette_font[2],
+  outline_color: palette_font[0],
+  outline_width: 2.5,
+});
 
 let shader_dither_transition: Shader;
 let sprite_dither: Sprite;
@@ -595,7 +613,7 @@ function drawLock(dt: number): number {
     }
   }
 
-  if (next_tumbler < pick_state.lock.length - 1) {
+  if (next_tumbler < pick_state.lock.length - 1 && !isJailbreak()) {
     let tumbler1 = pick_state.lock[next_tumbler];
     let tumbler2 = pick_state.lock[next_tumbler + 1];
     let required_pick = tumbler1 * 10 + tumbler2;
@@ -1240,6 +1258,10 @@ function nameRender(dialogparam: WithRequired<DialogParam, 'name'>, panel: Panel
     y: panel.y - 12,
     h: 14,
   };
+  if (dialogparam.name !== HERO) {
+    let text_w = font.getStringWidth(font_style0, 8, dialogparam.name);
+    box.x = game_width - text_w - 17;
+  }
   let z = panel.z! + 1;
   let draw_param = {
     ...box,
@@ -1265,6 +1287,14 @@ function nameRender(dialogparam: WithRequired<DialogParam, 'name'>, panel: Panel
     w: text_w + 10,
     z,
   }, autoAtlas('gfx', 'nameplate'), 1, panel.color);
+}
+
+function dialogTextStyle(cur_dialog: DialogParam): FontStyle {
+  if (cur_dialog.name === HERO) {
+    cur_dialog.text = cur_dialog.text.replace(/\[c=0\]/g, '[c=b]');
+    return font_style_hero;
+  }
+  return font_style1;
 }
 
 export function main(): void {
@@ -1315,11 +1345,13 @@ export function main(): void {
     font_style2,
     font_style3,
   ]);
+  markdownSetColorStyle('b', font_style_hero_bold);
 
   dialogStartup({
     font,
     style_default: font_style1,
     name_render_cb: nameRender,
+    text_style_cb: dialogTextStyle,
   });
 
   // preload
@@ -1334,11 +1366,12 @@ export function main(): void {
     loadGame();
 
     // engine.setState(statePlay);
-    player_state.num_picks = 5;
+    // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    startHeist(0);
+    player_state.goal = 'find2a';
+    // startHeist(6);
     // startTown(false, false);
-    startUnlocking(10, null);
-    // dialog('informant');
+    // startUnlocking(10, null);
+    dialog('informant');
   }
 }

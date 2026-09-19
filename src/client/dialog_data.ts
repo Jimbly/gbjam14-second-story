@@ -109,7 +109,18 @@ dialogRegister({
                 label: 'Search Strongfist Manor',
                 cb: function () {
                   if (goal === 'search2') {
-                    startHeist(4);
+                    dialogPush({
+                      name: HERO,
+                      text: 'Here kitties, I brought you some caviar! Who\'s a good kitty? You are, yes you are...',
+                      buttons: [{
+                        label: '',
+                        cb: function () {
+                          dialogLine(HERO, 'Okay, I can\'t be caught petting these adorable fuzzballs, on to the heist...', function () {
+                            startHeist(4);
+                          });
+                        },
+                      }],
+                    });
                   } else {
                     if (goal === 'find2b') {
                       playerState().goal = 'buytreat';
@@ -153,7 +164,23 @@ dialogRegister({
                 label: 'Rob Goldenhare Palace',
                 cb: function () {
                   if (goal === 'search3') {
-                    startHeist(5);
+                    dialogLine(HERO, 'Excuse me... are you Humphrey?',
+                      dialogLine.bind(null, 'HUMPHREY', 'Uh, depends who\'s asking?',
+                        dialogLine.bind(null, HERO, 'Well, sir. Is it alright if I call you "Hump"?',
+                          dialogLine.bind(null, 'HUMPHREY', 'It absolutely ---',
+                            dialogLine.bind(null, HERO, 'Well Hump, I was looking to, uh, tour, the palace, and I thought maybe this [c=0]DIAMOND TIARA[/c] would be something you\'d be interested in...',
+                              dialogLine.bind(null, HERO, 'Well, not you, specifically, but for your wife.',
+                                dialogLine.bind(null, 'HUMPHREY', 'This is so going to get me fired... but it\'s either that or another divorce... just don\'t tell anyone it was me.',
+                                  dialogLine.bind(null, HERO, 'I am the soul of discretion. Hump.', function () {
+                                    startHeist(5);
+                                  })
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    );
                   } else {
                     if (goal === 'find3b') {
                       playerState().goal = 'find3c';
@@ -267,6 +294,7 @@ dialogRegister({
     dialogPush({
       text: `GOLD: [c=0]${player_state.money}[/c]\nLOCKPICKS: [c=0]${player_state.num_picks}[/c]/10\n\nWhat would you like to buy?`,
       buttons,
+      instant: true,
     });
   },
   intro: function () {
@@ -421,7 +449,7 @@ dialogRegister({
         'Perhaps one that would appreciate a gift?',
         'Like a pony?',
         'No, I was thinking good old gold coins.',
-        'Ah, I know just the one, we play cards all the time!',
+        'Ah, I know just the one, Humphrey, we play cards all the time!',
         'A friend of yours? I warn you he may get in trouble.',
         'Most certainly not a friend, he\'s married to my ex-wife.',
         'And you play cards with him?',
@@ -432,7 +460,7 @@ dialogRegister({
         'Yes, but, an opportunity for you!',
         'I\'m not looking for a wife...',
         'That is good, as the guard most certainly is not looking to lose one.',
-        'Ah, perhaps if the guard had the perfect gift to soothe his wife, we could all be happy.',
+        'Ah, perhaps if Humphrey had the perfect gift to soothe his wife, we could all be happy.',
         'Well, not ALL of us.',
         'Yes, not Ramirrors, I would not want him to be happy.',
         'That\'s not who I meant... but, anyway, as luck would have it, I know just the perfect gift for the guard\'s wife.',

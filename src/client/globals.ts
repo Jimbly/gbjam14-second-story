@@ -10,7 +10,7 @@ export const DIALOG_VIEWPORT = {
   z: Z.UI + 10,
   w: game_width - 2,
   h: game_height / 2 - 1,
-  pad_lr: 4,
+  pad_lr: 5,
   pad_top: 5,
   pad_bottom: 3,
   pad_bottom_with_buttons: 3,

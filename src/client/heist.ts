@@ -213,14 +213,14 @@ const HEISTS = [{
 }, {
   // debug
   guards_initial: 1,
-  guards_total: 1,
+  guards_total: 11,
   w: 15,
   h: 15,
   room_min_w: 3,
   room_min_h: 3,
   room_min_area: [9, 0],
   room_max_area: 8*6,
-  heist_time: 120000,
+  heist_time: 160000,
   alert_time: 60000,
   chests: 1,
   chests_locked: 1,
@@ -1086,6 +1086,7 @@ class HeistState {
   found_special_reward = false;
   did_cell_unlock = false;
   footstep_counter = 0;
+  time_to_next_guard = -1;
 }
 
 let heist_state: HeistState;
@@ -2140,8 +2141,10 @@ export function doTimer(dt: number): void {
   }, autoAtlas('gfx', 'bar'));
 
   let { guards, def, entrance } = level;
+  heist_state.time_to_next_guard = -1;
   if (guards.length < def.guards_total) {
-    let time_per_guard = (time_max - def.alert_time) / (def.guards_total - def.guards_initial);
+    let extra_guards = def.guards_total - def.guards_initial;
+    let time_per_guard = (time_max - def.alert_time) / extra_guards;
     let expected_guards = def.guards_initial + floor((time_max - timer) / time_per_guard);
     if (guards.length < expected_guards) {
       // spawn a guard
@@ -2157,9 +2160,12 @@ export function doTimer(dt: number): void {
       playerFloater('[c=2]NEW GUARD!');
     }
     if (guards.length < def.guards_total) {
-      let guard_spawn_timer = (timer - def.alert_time) % time_per_guard;
+      let extra_spawned = guards.length - def.guards_initial;
+      let guard_spawn_timer = timer - (time_max - time_per_guard * (extra_spawned + 1));
       drawLine(x, y + h, x + w, y + h, z, 1, 1, palette[0]);
       drawLine(x, y + h, x + w * (1 - guard_spawn_timer/time_per_guard), y + h, z + 1, 1, 1, palette[3]);
+
+      heist_state.time_to_next_guard = guard_spawn_timer;
     }
   }
 
@@ -2342,6 +2348,16 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     //   h: r * 2,
     //   z: Z.LIGHTINNER,
     // });
+  }
+
+  if (heist_state.time_to_next_guard !== -1 && heist_state.time_to_next_guard < 3500 && heist_state.started) {
+    autoAtlas('gfx', `alert${floor((getFrameTimestamp() % 500)/500 * 2) + 1}`).draw({
+      x: level.entrance[0] * TILESIZE,
+      y: level.entrance[1] * TILESIZE,
+      w: TILESIZE,
+      h: TILESIZE,
+      z: Z.FLOATERS - 1,
+    });
   }
 
   const LIGHTRAD = 2.5;
