@@ -53,7 +53,7 @@ import {
 } from 'glov/client/ui';
 import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
-import { unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
+import { JSVec4, unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
   actionCheckBinds,
   actionEdge,
@@ -83,7 +83,7 @@ import { playSound, SOUND_DATA } from './sound_data';
 import { titleInit } from './title';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { atan2, ceil, max, min, floor, PI, pow, random, round, sin } = Math;
+const { abs, atan2, ceil, max, min, floor, PI, pow, random, round, sin } = Math;
 
 window.Z = window.Z || {};
 Z.REPALETTE = 99999;
@@ -500,6 +500,8 @@ function drawLock(dt: number): number {
     z: Z.BACKGROUND + 1,
   });
 
+  let next_tumbler = pick_state.progress;
+
   if (anim) {
     anim.t += dt;
     let p = anim.t / 1000;
@@ -520,7 +522,9 @@ function drawLock(dt: number): number {
         xoffs = ydown;
         ydown = 0;
       }
+      next_tumbler = anim.progress;
       if (!anim.failed && p >= 0.75) {
+        next_tumbler = pick_state.progress;
         depressed[anim.progress] = 6;
         if (is_double) {
           depressed[anim.progress+1] = 6;
@@ -581,6 +585,33 @@ function drawLock(dt: number): number {
     }
   }
 
+  if (next_tumbler < pick_state.lock.length - 1) {
+    let tumbler1 = pick_state.lock[next_tumbler];
+    let tumbler2 = pick_state.lock[next_tumbler + 1];
+    let required_pick = tumbler1 * 10 + tumbler2;
+    if (player_state.picks.includes(required_pick) ||
+      player_state.picks.includes(PICK_PAIRS[required_pick])
+    ) {
+      // have it!
+      let color: JSVec4 = [1,1,1, abs(sin(engine.getFrameTimestamp() * 0.0025))];
+      autoAtlas('gfx', 'adv-pick-guide').draw({
+        color,
+        x: x0 + 8 + next_tumbler * 8,
+        y: y - 9,
+        w: 18,
+        h: 8,
+        z: z,
+      });
+      autoAtlas('gfx', 'adv-pick-hint').draw({
+        // color,
+        x: min(x1 - 57, x0 + next_tumbler * 8 - 15),
+        y: y - 17,
+        w: 57,
+        h: 5,
+        z: z,
+      });
+    }
+  }
 
   for (let ii = pick_state.lock.length - 1; ii >= 0; --ii) {
     let tumbler = pick_state.lock[ii];
@@ -1293,11 +1324,11 @@ export function main(): void {
     loadGame();
 
     // engine.setState(statePlay);
-    // player_state.num_picks = 10;
+    player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    // startHeist(2);
+    startHeist(0);
     // startTown(false, false);
-    // startUnlocking(10, null);
+    startUnlocking(10, null);
     // dialog('informant');
   }
 }
