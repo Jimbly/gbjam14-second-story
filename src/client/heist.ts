@@ -318,6 +318,7 @@ class Level {
   isHallway(x: number, y: number): boolean {
     return x >= this.vpath[0] && x < this.vpath[1] || y >= this.hpath[0] && y < this.vpath[1];
   }
+  fires: { x: number; y: number }[] = [];
 }
 
 Z.CLEARBG = 1;
@@ -331,8 +332,11 @@ Z.WALLS = 35;
 Z.CHESTS = 35;
 Z.DOORS = 39;
 Z.LIGHT = 40;
+Z.FIRELIGHT = 45;
 Z.HERO = 50;
-Z.GUARDS = 51;
+Z.SHOPKEEPER = 50;
+Z.FIRE = 54;
+Z.GUARDS = 55;
 Z.CEILING = 60;
 Z.DOOR_HIGHZ = 60;
 Z.BACKGROUND = 80;
@@ -344,7 +348,7 @@ const TILE_Z: Rec<string, number> = {
   'jail': Z.WALLS,
   'shop': Z.WALLS,
   'npc': Z.WALLS,
-  'shopkeeper': Z.WALLS,
+  'shopkeeper': Z.SHOPKEEPER,
   'wall-h': Z.WALLS,
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
@@ -1092,18 +1096,16 @@ function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
           pos: [xx, yy],
           type: 'celldoor',
         });
+      } else if (tile === 'shopkeeper') {
+        level.events.push({
+          pos: [xx, yy],
+          type: 'shop',
+        });
       } else if (tile === 'npc') {
-        if (name === 'shop') {
-          level.events.push({
-            pos: [xx, yy],
-            type: 'shop',
-          });
-        } else if (name === 'town') {
-          level.events.push({
-            pos: [xx, yy],
-            type: 'informant',
-          });
-        }
+        level.events.push({
+          pos: [xx, yy],
+          type: 'informant',
+        });
       } else if (tile === 'event-1') {
         tiles[yy][xx] = 'floor-1';
         level.events.push({
@@ -1123,6 +1125,15 @@ function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
         });
       }
     }
+  }
+
+  if (name === 'shop') {
+    level.fires.push({ x: 11, y: 1 });
+    level.cells[1][11] = 'wall';
+  }
+  if (name === 'jail') {
+    level.fires.push({ x: 2, y: 4 });
+    level.cells[4][2] = 'wall';
   }
 }
 
@@ -2193,10 +2204,14 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   effectsQueue(Z.VISMAPCAPTURE, vismapCapture);
   spriteQueueFn(Z.LIGHT, lightPassApply);
 
+  let heroz = Z.HERO;
+  if (cur_map === 'shop' && hy < 3.5*14) {
+    heroz = Z.FIRELIGHT - 1;
+  }
   autoAtlas('gfx', ['hero-down', 'hero-right', 'hero-up', 'hero-left'][heist_state.dir]).draw({
     x: hx - TILESIZE/2,
     y: hy - TILESIZE/2,
-    z: Z.HERO,
+    z: heroz,
     w: TILESIZE,
     h: TILESIZE,
   });
@@ -2254,6 +2269,40 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       h: TILESIZE,
       z: Z.CHESTS,
     });
+  }
+
+  let { fires } = level;
+  let fire_frame = floor(getFrameTimestamp() * 0.004) % 4;
+  for (let ii = 0; ii < fires.length; ++ii) {
+    let fire = fires[ii];
+    autoAtlas('gfx', `fire${fire_frame + 1}`).draw({
+      x: fire.x * TILESIZE,
+      y: fire.y * TILESIZE,
+      z: Z.FIRE,
+      w: TILESIZE,
+      h: TILESIZE,
+    });
+
+    let r = (cur_map === 'jail' ? 14 : 24) + sin(getFrameTimestamp() * 0.002) * 3;
+    autoAtlas('gfx', 'light1').draw({
+      color: [0.25, 0.25, 0.25, 1],
+      x: (fire.x + 0.5) * TILESIZE - r,
+      y: (fire.y + 0.5) * TILESIZE - r,
+      w: r * 2,
+      h: r * 2,
+      z: Z.FIRELIGHT,
+      blend: BLEND_ADDITIVE,
+    });
+
+    // let r = 21 + sin(getFrameTimestamp() * 0.002) * 3;
+    // autoAtlas('gfx', 'light1').draw({
+    //   color: [0.5, 0.5, 0.5, 1],
+    //   x: lightx_screen - r,
+    //   y: lighty_screen - r,
+    //   w: r * 2,
+    //   h: r * 2,
+    //   z: Z.LIGHTINNER,
+    // });
   }
 
   const LIGHTRAD = 2.5;
