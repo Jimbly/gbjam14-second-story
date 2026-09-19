@@ -237,6 +237,7 @@ dialogRegister({
     function pushExtra(thing: string, cost: number, pre_goal: GoalID): void {
       buttons.push({
         label: `${thing} - [c=1]${cost}[/c]G`,
+        sound: player_state.money >= cost && player_state.goal === pre_goal ? 'victory' : undefined,
         cb: function () {
           if (player_state.money < cost) {
             dialog('cannotafford');
@@ -369,7 +370,7 @@ dialogRegister({
         'Do you know the name [c=0]Ramirrors Goldenhare[/c]?',
         'Well, I certainly do now!',
         'Only just now?',
-        'In fact, I was aware of it even before you mentioned it. I just wanted you to feel like you were telling me something new.',
+        'In fact, I was aware of it even before it graced your lips. I just wanted you to feel the joy of telling me something new.',
         'Ah, rest assured, just telling you a name is not why I came here.',
         'Truly? I would not have guessed.',
         'Then perhaps guessing is not your strong suit.',
@@ -387,7 +388,7 @@ dialogRegister({
         '...I don\'t think I can get you a pony.',
         'That does seem unlikely. Well, if it\'s only information you seek, that I can give freely.',
         'Freely?',
-        'Yes, as you can see, my pouch is still nearly bursting, as I have few demands upon my finances as I sit in this alley.',
+        'Yes, as you can see, my pouch is still nearly bursting, as I have few demands upon my finances while I sit in this alley.',
         'So, will you give it to me?',
         'The alley?',
         'No, the information we were discussing an hour ago.',
@@ -438,13 +439,14 @@ dialogRegister({
         'You do?',
         'Yes, for, you see, I am tolerably acquainted with her tastes.',
         'Excellent, and what would she appreciate?',
-        'She has a... small horse, named Al Capony, she adores more than life itself, and always wanted a diamond-studded tiara for him.',
+        'She has a... small horse, named Al Capony, which she adores more than life itself, and she desires a diamond-studded tiara for him.',
         'That sounds expensive.',
         'Not as expensive as you might think, and the shop over there carries just the thing!',
         'Well, isn\'t that fortuitous!',
         'It\'s almost like some all-knowing being put the gift in the shop for this very purpose...',
         'Well, thank you, you have been most helpful! Here\'s 1000G.',
-        'Ah, no worries, wallet\'s still full! I really haven\'t left this spot to go spend anything in days.'
+        'Ah, no worries, wallet\'s still full! I really haven\'t left this spot to go spend anything in days.',
+        '...except the card game, unless that was held right here...',
       ]);
     } else if (player_state.goal === 'buygift') {
       signWithName(INFORMANT, 'I was clear and tolerably concise: go check the SHOP for a gift for the guard\'s wife.');
@@ -474,19 +476,26 @@ dialogRegister({
       dialogLine(HERO, 'What a peaceful looking town, this will be great for my retirement.  I should take a look around.');
     } else if (goal === 'outtahere') {
       saveGame();
-      dialogLine(HERO, 'Okay, enough of this town, I guess to really retire I\'m going to have to start a goat farm in the country...',
-        function () {
-          dialogPush({
-            text: 'CONGRATULATIONS! YOU WIN!\n\n' +
-              'Thanks for playing!',
-            buttons: [{
-              label: 'EXIT TO MAIN MENU',
-              cb: function () {
-                titleInit();
-              }
-            }],
-          });
-        });
+      dialogPush({
+        name: HERO,
+        text: 'Okay, enough of this town, I guess to really retire I\'m going to have to start a goat farm in the country...',
+        buttons: [{
+          label: '',
+          sound: 'victory',
+          cb: function () {
+            dialogPush({
+              text: 'CONGRATULATIONS! YOU WIN!\n\n' +
+                'Thanks for playing!',
+              buttons: [{
+                label: 'EXIT TO MAIN MENU',
+                cb: function () {
+                  titleInit();
+                }
+              }],
+            });
+          },
+        }],
+      });
     } else {
       dialogLine(HERO, 'I can\'t leave now, I\'ve got unfinished business.');
     }

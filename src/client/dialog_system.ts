@@ -55,6 +55,7 @@ import { actionEdge, ActionKey } from './binds';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
 import { getPaletteFont } from './main';
+import { GameSoundID } from './sound_data';
 
 const { ceil, max, min, round } = Math;
 
@@ -69,6 +70,7 @@ export type DialogButton = {
   cb?: string | (() => void);
   hotkeys?: number[];
   hotactions?: ActionKey[];
+  sound?: GameSoundID;
 };
 export type DialogParam = {
   name?: string;
@@ -404,7 +406,7 @@ export function dialogRun(
       // just "press any key"
       let button = buttons![0];
       if (actionEdge('accept') || actionEdge('cancel')) {
-        playUISound('button_click');
+        playUISound(button.sound || 'button_click');
         active_dialog = null;
         if (button.cb) {
           if (typeof button.cb === 'string') {
@@ -452,7 +454,7 @@ export function dialogRun(
         }, selected ? 'rollover' : 'regular', selected);
         let go = false;
         if (selected && actionEdge('accept')) {
-          playUISound('button_click');
+          playUISound(button.sound || 'button_click');
           go = true;
         }
         if (inputTouchMode()) {
@@ -466,7 +468,7 @@ export function dialogRun(
         if (button.hotactions) {
           for (let jj = 0; jj < button.hotactions.length; ++jj) {
             if (actionEdge(button.hotactions[jj])) {
-              playUISound('button_click');
+              playUISound(button.sound || 'button_click');
               go = true;
             }
           }

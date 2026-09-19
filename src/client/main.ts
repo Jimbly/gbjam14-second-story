@@ -424,6 +424,7 @@ export function saveGame(): void {
     num_picks: player_state.num_picks,
     goal: player_state.goal,
     heists: player_state.heists,
+    did_hint: player_state.did_hint,
   });
 }
 
@@ -467,7 +468,7 @@ function stateLockPickInit(num_tumblers: number, pick_state_in: PickState | null
       player_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
     }
   }
-  if (player_state.did_hint === 0 && player_state.num_picks > 2) {
+  if (player_state.did_hint === 0 && player_state.num_picks > 2 && !isJailbreak()) {
     player_state.did_hint = 1;
     dialog('advancedpicks');
     for (let ii = 0; ii < pick_state.lock.length; ii+=2) {
@@ -850,7 +851,7 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     if (new_goal) {
       player_state.goal = new_goal;
     }
-    playSound('pickup');
+    playSound('victory');
   } else {
     playSound('fail');
   }
@@ -1154,6 +1155,7 @@ type SavedGame = {
   num_picks: number;
   goal: GoalID;
   heists: number[];
+  did_hint: number;
   // mode: PlayerState['mode'];
 };
 
@@ -1180,6 +1182,7 @@ export function loadGame(): void {
   player_state.num_picks = data.num_picks;
   player_state.goal = data.goal;
   player_state.heists = data.heists || [];
+  player_state.did_hint = data.did_hint || 0;
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
@@ -1292,7 +1295,7 @@ export function main(): void {
     // engine.setState(statePlay);
     // player_state.num_picks = 10;
     // player_state.did_hint = 1;
-    // startHeist(6);
+    // startHeist(2);
     // startTown(false, false);
     // startUnlocking(10, null);
     // dialog('informant');

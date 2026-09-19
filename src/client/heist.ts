@@ -22,6 +22,7 @@ import { DataObject, Rec } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
   JSVec2,
+  JSVec3,
   JSVec4,
   unit_vec,
   v2addScale,
@@ -180,7 +181,7 @@ const HEISTS = [{
   chest_value_simple: 0,
   chest_value_locked: 0,
   tumblers: [10, 0], // [base + range*2]
-  fixed_seed: 9,
+  fixed_seed: 13,
   intro_dialog: 'Strongfist Manor...\nWhat secrets do you hide?',
   reward_dialog: 'special2',
   reward_goal: 'find3a',
@@ -188,8 +189,8 @@ const HEISTS = [{
   set: 'set2-',
 }, {
   // special house #3
-  guards_initial: 8,
-  guards_total: 12,
+  guards_initial: 12,
+  guards_total: 16,
   w: 60,
   h: 60,
   room_min_w: 3,
@@ -798,11 +799,14 @@ function genLevel(def: HeistDef): void {
   addDoorsToUnreachable();
   addOneDoorPerRoom();
 
+  let last_doors: number[] = [];
   function countDoors(room: JSVec4): number {
     let r = 0;
+    last_doors.length = 0;
     for (let yy = -1; yy <= room[3]; ++yy) {
       for (let xx = -1; xx <= room[2]; ++xx) {
         if (cells[room[1] + yy][room[0] + xx] === 'door') {
+          last_doors.push(room[0] + xx, room[1] + yy);
           r++;
         }
       }
@@ -816,33 +820,68 @@ function genLevel(def: HeistDef): void {
   let occupied: Rec<number, boolean> = {};
   let desired_chests = def.chests;
   let locked_chests = def.chests_locked;
-  function addChest(roomid: number): void {
+  function addChest(roomid: number, far_from_doors: boolean): void {
     let room = rooms[roomid];
     did_chests[roomid] = true;
     --desired_chests;
-    let retries = 0;
-    while (retries < 100) {
-      ++retries;
-      let x = room[0] + rand.range(room[2]);
-      let y = room[1] + rand.range(room[3]);
-      if (!countDoors([x, y, 1, 1])) {
-        const type = locked_chests ? 'locked' : 'simple';
-        if (locked_chests) {
-          --locked_chests;
+    const type = locked_chests ? 'locked' : 'simple';
+    if (locked_chests) {
+      --locked_chests;
+    }
+    const value = type === 'simple' ? def.chest_value_simple : def.chest_value_locked;
+    const tumblers = def.tumblers[0] + rand.range(def.tumblers[1]) * 2;
+    const chest: Chest = {
+      pos: [0,0],
+      type,
+      value,
+      tumblers,
+      progress: 0,
+      opened: false,
+      pick_state: null,
+    };
+
+    if (far_from_doors) {
+      countDoors(room);
+      let options: JSVec3[] = [];
+      for (let yy = 0; yy < room[3]; ++yy) {
+        for (let xx = 0; xx < room[2]; ++xx) {
+          let mindist = Infinity;
+          for (let ii = 0; ii < last_doors.length;) {
+            let doorx = last_doors[ii++];
+            let doory = last_doors[ii++];
+            let dist = abs((room[0] + xx) - doorx) +
+              abs((room[1] + yy) - doory);
+            if (dist < mindist) {
+              mindist = dist;
+            }
+          }
+          options.push([room[0] + xx, room[1] + yy, mindist]);
         }
-        let value = type === 'simple' ? def.chest_value_simple : def.chest_value_locked;
-        let tumblers = def.tumblers[0] + rand.range(def.tumblers[1]) * 2;
-        occupied[x + y * w] = true;
-        chests.push({
-          pos: [x, y],
-          type,
-          value,
-          tumblers,
-          progress: 0,
-          opened: false,
-          pick_state: null,
-        });
-        break;
+      }
+      options.sort(function (a, b) {
+        return a[2] - b[2];
+      });
+      let opt = options[floor(options.length * 0.8)];
+      let [bestx, besty] = opt;
+      occupied[bestx + besty * w] = true;
+      chests.push({
+        ...chest,
+        pos: [bestx, besty],
+      });
+    } else {
+      let retries = 0;
+      while (retries < 100) {
+        ++retries;
+        let x = room[0] + rand.range(room[2]);
+        let y = room[1] + rand.range(room[3]);
+        if (!countDoors([x, y, 1, 1])) {
+          occupied[x + y * w] = true;
+          chests.push({
+            ...chest,
+            pos: [x, y],
+          });
+          break;
+        }
       }
     }
   }
@@ -856,7 +895,7 @@ function genLevel(def: HeistDef): void {
   }
   shuffleArray(rand, closets);
   for (let ii = 0; ii < closets.length && desired_chests; ++ii) {
-    addChest(closets[ii]);
+    addChest(closets[ii], true);
   }
   // then just random rooms
   let retries = 0;
@@ -867,7 +906,7 @@ function genLevel(def: HeistDef): void {
       continue;
     }
     retries = 0;
-    addChest(roomid);
+    addChest(roomid, true);
   }
 
   // add guards to random rooms
@@ -1222,7 +1261,7 @@ function doEvent(event: MapEvent): void {
       });
       anim.add(500, 0, (progress) => {
         playerFloater('[c=2]#$!?');
-        playSound('fail');
+        playSound('mugged');
       });
       anim.add(1000, 0, (progress) => {
         dialog('mugged');

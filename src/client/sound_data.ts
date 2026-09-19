@@ -16,20 +16,22 @@ export const SOUND_DATA = {
   rollover: { file: 'rollover', volume: 0.25 },
 
   pickup: 'pickup',
-  thatsall: 'pickup',
+  thatsall: 'new/victory',
   fail: 'fail',
   locked: 'locked',
+  victory: 'new/victory',
+  mugged: 'new/doot',
 
-  pick_miss: 'pick_miss',
+  pick_miss: 'new/doot',
   pick_hit: 'pick_hit',
   pick_hit_good: 'pick_hit_good',
 
   footstep: 'footstep',
-  alert: 'alert',
+  alert: 'new/time-running-out',
   guard_arrived: 'guard_alert',
   guard_chase: 'guard_alert',
   guard_forget: 'guard_forget',
-  guard_caught: 'fail',
+  guard_caught: 'new/doot',
 
 } satisfies Partial<Record<string, UISoundID | string | string[] | UISoundID[]>>;
 
