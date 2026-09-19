@@ -344,6 +344,7 @@ const TILE_Z: Rec<string, number> = {
   'jail': Z.WALLS,
   'shop': Z.WALLS,
   'npc': Z.WALLS,
+  'shopkeeper': Z.WALLS,
   'wall-h': Z.WALLS,
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
@@ -433,6 +434,7 @@ function tilesToCells(level: Level): void {
             row.push('wall');
           }
           break;
+        case 'shopkeeper':
         case 'npc':
         case 'guard-left':
         case 'guard-right':
@@ -490,6 +492,7 @@ const TILED_TILESET: Rec<number, string> = {
   26: 'wall-lr',
   27: 'wall-upper-corner',
   28: 'wall-left-t',
+  29: 'shopkeeper',
 };
 function levelFromJSON(json: DataObject, jailbreak: boolean): Level {
   let level = new Level(TOWNDEF);
