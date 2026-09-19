@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* reduce caught penalty
 * make Itch page
 
 Pre-prelease

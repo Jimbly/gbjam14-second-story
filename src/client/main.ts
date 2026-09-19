@@ -79,6 +79,7 @@ import {
   doTimer,
   doubleLockBonus,
   finishUnlocking,
+  // getHeistState,
   initTownMap,
   isJailbreak,
   playerFloater,
@@ -436,6 +437,7 @@ export function randInt(mx: number): number {
 
 class PlayerState {
   money = 0;
+  jailbreak = 0;
   num_picks = 2;
   goal: GoalID = 'intro0';
   mode: 'unlock' | 'heist' | 'town' = 'town';
@@ -449,6 +451,7 @@ let player_state = new PlayerState();
 export function saveGame(): void {
   localStorageSetJSON<SavedGame>('savegame', {
     money: player_state.money,
+    jailbreak: player_state.jailbreak,
     num_picks: player_state.num_picks,
     goal: player_state.goal,
     heists: player_state.heists,
@@ -894,7 +897,7 @@ function leavePicking(): void {
   }
 }
 
-function startTown(initial: boolean, jailbreak: boolean): void {
+function startTown(initial: boolean, jailbreak: number): void {
   initTownMap(initial, jailbreak);
   player_state.mode = 'town';
   dialogReset();
@@ -902,7 +905,7 @@ function startTown(initial: boolean, jailbreak: boolean): void {
 }
 
 let last_heist_index = 0;
-export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null, jailbreak: boolean): void {
+export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null, jailbreak: number): void {
   if (success && !loot) {
     // no sound, had a UI action leading up to this
   } else if (success) {
@@ -915,6 +918,7 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     playSound('fail');
   }
   player_state.money += loot;
+  player_state.jailbreak = jailbreak;
   startTown(false, jailbreak);
   if (loot) {
     playerFloater(`[c=3]+${loot}[/c][c=2]G[/c]`);
@@ -1211,6 +1215,7 @@ function statePlay(dt: number): void {
 
 type SavedGame = {
   money: number;
+  jailbreak: number;
   num_picks: number;
   goal: GoalID;
   heists: number[];
@@ -1226,7 +1231,7 @@ export function newGameInit(): void {
   player_state = new PlayerState();
   dialogReset();
   engine.setState(statePlay);
-  startTown(true, false);
+  startTown(true, 0);
 }
 
 export function playerState(): PlayerState {
@@ -1238,6 +1243,7 @@ export function loadGame(): void {
   assert(data);
   player_state = new PlayerState();
   player_state.money = data.money;
+  player_state.jailbreak = data.jailbreak || 0;
   player_state.num_picks = data.num_picks;
   player_state.goal = data.goal;
   player_state.heists = data.heists || [];
@@ -1245,7 +1251,7 @@ export function loadGame(): void {
   player_state.mode = 'town';
   dialogReset();
   engine.setState(statePlay);
-  startTown(player_state.goal === 'intro0', false);
+  startTown(player_state.goal === 'intro0', player_state.jailbreak);
 }
 
 export function canLoad(): boolean {
@@ -1368,10 +1374,11 @@ export function main(): void {
     // engine.setState(statePlay);
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    player_state.goal = 'find2a';
+    // player_state.goal = 'find2a';
     // startHeist(6);
+    // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);
-    dialog('informant');
+    // dialog('informant');
   }
 }

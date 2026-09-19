@@ -38,7 +38,7 @@ import {
 } from 'glov/common/vmath';
 import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
-import { HERO } from './dialog_data';
+import { dialogLine, HERO, signWithName } from './dialog_data';
 import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import {
@@ -285,7 +285,7 @@ class Level {
   def: HeistDef;
   w: number;
   h: number;
-  jailbreak = false;
+  jailbreak = 0;
   constructor(def: HeistDef) {
     this.def = def;
     this.w = def.w;
@@ -364,6 +364,7 @@ const TILE_Z: Rec<string, number> = {
   'door-h': Z.DOORS,
   'floor-1': Z.FLOORS,
   'floor-1b': Z.FLOORS,
+  'loot': Z.FLOORS,
   'floor-2': Z.CEILING,
   'chest-opened': Z.CHESTS,
   'chest-aborted': Z.CHESTS,
@@ -445,6 +446,7 @@ function tilesToCells(level: Level): void {
         case 'guard-right':
         case 'floor-1':
         case 'floor-2':
+        case 'loot':
         case 'event-1':
         case 'event-2':
         case 'chest-opened':
@@ -499,7 +501,7 @@ const TILED_TILESET: Rec<number, string> = {
   28: 'wall-left-t',
   29: 'shopkeeper',
 };
-function levelFromJSON(json: DataObject, jailbreak: boolean): Level {
+function levelFromJSON(json: DataObject, jailbreak: number): Level {
   let level = new Level(TOWNDEF);
   level.w = json.width as number;
   level.h = json.height as number;
@@ -1099,67 +1101,67 @@ let cur_map: string;
 export function curMap(): string {
   return cur_map;
 }
-function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
+function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
   let json = LEVELS[name];
   cur_map = name;
   level = levelFromJSON(json, jailbreak);
-  let { tiles } = level;
+  let { tiles, events } = level;
   for (let yy = 0; yy < level.h; ++yy) {
     for (let xx = 0; xx < level.w; ++xx) {
       let tile = tiles[yy][xx];
       if (tile === 'shop') {
-        level.events.push({
+        events.push({
           pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
           type: 'shopenter',
         });
       } else if (tile === 'jail') {
-        level.events.push({
+        events.push({
           pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
           type: 'jailenter',
         });
       } else if (tile === 'door-v') {
         if (xx === level.w - 1 && name === 'town') {
-          level.events.push({
+          events.push({
             pos: [xx, yy],
             type: 'startheist',
           });
         } else if (name === 'jail') {
           if (xx > 4) {
-            level.events.push({
+            events.push({
               pos: [xx+1, yy],
               type: 'jailenter',
             });
           }
         }
       } else if (tile === 'celldoor') {
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'celldoor',
         });
       } else if (tile === 'shopkeeper') {
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'shop',
         });
       } else if (tile === 'npc') {
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'informant',
         });
       } else if (tile === 'event-1') {
         tiles[yy][xx] = 'floor-1';
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'storyevent1',
         });
       } else if (tile === 'event-2') {
         tiles[yy][xx] = 'floor-1';
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'storyevent2',
         });
       } else if (tile === 'gate') {
-        level.events.push({
+        events.push({
           pos: [xx, yy],
           type: 'townexit',
         });
@@ -1174,6 +1176,14 @@ function initMap(name: keyof typeof LEVELS, jailbreak: boolean): void {
   if (name === 'jail') {
     level.fires.push({ x: 2, y: 4 });
     level.cells[4][2] = 'wall';
+
+    if (jailbreak > 0) {
+      tiles[2][4] = 'loot';
+      events.push({
+        pos: [4, 2],
+        type: 'jailloot',
+      });
+    }
   }
 }
 
@@ -1202,7 +1212,7 @@ function doEvent(event: MapEvent): void {
             label: 'Yes, leave',
             cb: function () {
               queueTransitionDitherUpDown(500);
-              leaveHeist(true, heist_state.loot, null, false);
+              leaveHeist(true, heist_state.loot, null, 0);
             }
           }],
         });
@@ -1210,7 +1220,7 @@ function doEvent(event: MapEvent): void {
         queueTransitionDitherUpDown(500);
         leaveHeist(true, heist_state.loot,
           heist_state.found_special_reward ? level.def.reward_goal as GoalID : null,
-          false);
+          0);
       }
       break;
     case 'shopenter':
@@ -1233,7 +1243,7 @@ function doEvent(event: MapEvent): void {
       break;
     case 'celldoor':
       if (!heist_state.did_cell_unlock) {
-        startUnlocking(6, null);
+        startUnlocking(DEBUG ? 1 : 6, null);
       }
       break;
     case 'storyevent2': {
@@ -1269,6 +1279,17 @@ function doEvent(event: MapEvent): void {
       });
       player_state.goal = 'mugged';
 
+    } break;
+    case 'jailloot': {
+      let player_state = playerState();
+      if (player_state.jailbreak) {
+        signWithName(HERO, 'I\'ll take this back, thank you very much...');
+        playerFloater(`[c=3]+${player_state.jailbreak}G[/c]`);
+        player_state.money += player_state.jailbreak;
+        player_state.jailbreak = 0;
+        level.tiles[2][4] = 'floor-1';
+        playSound('pickup');
+      }
     } break;
     default:
       if (dialogExists(event.type)) {
@@ -2053,7 +2074,7 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
 }
 
 export function isJailbreak(): boolean {
-  return level && level.jailbreak;
+  return Boolean(level && level.jailbreak);
 }
 
 export function playerPos(): JSVec2 {
@@ -2182,12 +2203,12 @@ export function doTimer(dt: number): void {
     dialogPush({
       name: HERO,
       text: 'Oh no! Outta time, this place is surrounded.\n\n' +
-        '[c=0]I guess I gotta drop everything and get out of here...[/c]',
+        '[c=0]I guess I gotta drop half of what I found and get out of here...[/c]',
       buttons: [{
         label: 'At least I wasn\'t caught...',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0, null, false);
+          leaveHeist(false, ceil(heist_state.loot / 2), null, 0);
         }
       }],
     });
@@ -2571,6 +2592,7 @@ function doFloaters(dt: number): void {
   }
 
   if (!floaters.length && caught && !dialogMoveLocked()) {
+    let kept_loot = ceil(heist_state.loot * 0.5);
     heist_state.loot = 0;
     dialogPush({
       text: 'The guards take everything you\'ve found and lock you up.\n\n' +
@@ -2579,7 +2601,7 @@ function doFloaters(dt: number): void {
         label: '',
         cb: function () {
           queueTransitionDitherUpDown(500);
-          leaveHeist(false, 0, null, true);
+          leaveHeist(false, 0, null, kept_loot || -1);
         }
       }],
     });
@@ -2648,14 +2670,14 @@ export function stateHeist(dt: number, is_town: boolean):void {
   }
 
   if (end_of_frame_load) {
-    initMap(end_of_frame_load, false);
+    initMap(end_of_frame_load, 0);
     end_of_frame_load = null;
   }
 }
 
-export function initTownMap(initial: boolean, jailbreak: boolean): void {
+export function initTownMap(initial: boolean, jailbreak: number): void {
   palette = getPalette();
-  initMap('town', false);
+  initMap('town', 0);
   heist_state = new HeistState();
   if (initial) {
     heist_state.pos = [
@@ -2674,7 +2696,7 @@ export function initTownMap(initial: boolean, jailbreak: boolean): void {
   anim = null;
 
   if (jailbreak) {
-    initMap('jail', true);
+    initMap('jail', jailbreak);
     heist_state.pos = [
       1.5,
       2.5,
@@ -2683,4 +2705,8 @@ export function initTownMap(initial: boolean, jailbreak: boolean): void {
     level.cells[1][4] = 'wall'; // block exiting
     level.cells[3][4] = 'wall'; // block visiting guards
   }
+}
+
+export function getHeistState(): HeistState {
+  return heist_state;
 }
