@@ -1291,7 +1291,8 @@ export function main(): void {
 
     // engine.setState(statePlay);
     // player_state.num_picks = 10;
-    // startHeist(3);
+    // player_state.did_hint = 1;
+    // startHeist(6);
     // startTown(false, false);
     // startUnlocking(10, null);
     // dialog('informant');
