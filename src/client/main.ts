@@ -389,6 +389,16 @@ const PICK_PAIRS: Record<number, number> = {
   42: 11,
   43: 22,
 };
+const PICK_ORDER = [
+  12, // 21
+  14, // 33
+  23, // 34
+  31, // 24
+  41, // 13
+  42, // 11
+  43, // 22
+  44, // 32
+];
 const COMPOUND_PICKS: number[] = [];
 (function () {
   let keys = Object.keys(PICK_PAIRS);
@@ -465,7 +475,7 @@ function stateLockPickInit(num_tumblers: number, pick_state_in: PickState | null
   if (player_state.picks.length !== player_state.num_picks) {
     player_state.picks = [1, 2];
     for (let ii = 2; ii < player_state.num_picks; ++ii) {
-      player_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
+      player_state.picks.unshift(PICK_ORDER[ii - 2]);
     }
   }
   if (player_state.did_hint === 0 && player_state.num_picks > 2 && !isJailbreak()) {
