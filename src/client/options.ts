@@ -100,7 +100,7 @@ function stateOptionsMenu(dt: number): void {
   indicator();
   if (selection === selidx) {
     if (actionEdge('accept')) {
-      settingsSet('volume_sound', (round(settingsGet('volume_sound') * 10) % 10) / 10);
+      settingsSet('volume_sound', (round(settingsGet('volume_sound') * 10 + 1) % 11) / 10);
       playSound('button_click');
     }
     if (actionEdge('right')) {
@@ -124,7 +124,7 @@ function stateOptionsMenu(dt: number): void {
   indicator();
   if (selection === selidx) {
     if (actionEdge('accept')) {
-      settingsSet('volume_music', (round(settingsGet('volume_music') * 10) % 10) / 10);
+      settingsSet('volume_music', (round(settingsGet('volume_music') * 10 + 1) % 11) / 10);
       playSound('button_click');
     }
     if (actionEdge('right')) {

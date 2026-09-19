@@ -153,7 +153,7 @@ export function bindsInit(): void {
   // actionBindPad('BACK', 'select');
   // actionBindPad('START', 'start');
   actionBindPad('BACK', 'cancel');
-  actionBindPad('START', 'accept');
+  actionBindPad('START', 'cancel');
   actionBindPad('LEFT_STICK', 'accept');
   actionBindPad('RIGHT_STICK', 'accept');
   actionBindPad('UP', 'up');

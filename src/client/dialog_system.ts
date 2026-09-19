@@ -51,7 +51,7 @@ import {
   v2distSq,
   vec4,
 } from 'glov/common/vmath';
-import { actionEdge } from './binds';
+import { actionEdge, ActionKey } from './binds';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
 import { getPaletteFont } from './main';
@@ -68,6 +68,7 @@ export type DialogButton = {
   label: string;
   cb?: string | (() => void);
   hotkeys?: number[];
+  hotactions?: ActionKey[];
 };
 export type DialogParam = {
   name?: string;
@@ -460,6 +461,14 @@ export function dialogRun(
             ...button_rect,
           }).ret) {
             go = true;
+          }
+        }
+        if (button.hotactions) {
+          for (let jj = 0; jj < button.hotactions.length; ++jj) {
+            if (actionEdge(button.hotactions[jj])) {
+              playUISound('button_click');
+              go = true;
+            }
           }
         }
         if (go) {

@@ -130,7 +130,7 @@ const HEISTS = [{
   heist_time: 270000,
   alert_time: 45000,
   chests: 12, // $3000
-  chests_locked: 8,
+  chests_locked: 6,
   chest_value_simple: 130,
   chest_value_locked: 280,
   tumblers: [6, 2], // [base + range*2]
@@ -176,7 +176,7 @@ const HEISTS = [{
   chest_value_simple: 0,
   chest_value_locked: 0,
   tumblers: [10, 0], // [base + range*2]
-  fixed_seed: 12,
+  fixed_seed: 9,
   intro_dialog: 'Strongfist Manor...\nWhat secrets do you hide?',
   reward_dialog: 'special2',
   reward_goal: 'find3a',
@@ -187,10 +187,10 @@ const HEISTS = [{
   guards_total: 12,
   w: 60,
   h: 60,
-  room_min_w: 5,
-  room_min_h: 5,
+  room_min_w: 3,
+  room_min_h: 3,
   room_min_area: [12, 0],
-  room_max_area: 8*6,
+  room_max_area: 7*6,
   heist_time: 61000,
   alert_time: 60000,
   chests: 1,
@@ -1962,7 +1962,8 @@ function drawHeistHUD(dt: number, is_town: boolean): void {
     let eff_loot = blend('loot', loot);
     markdownAuto({
       x: x + 2, y: y + 2, z: z + 1, w, h,
-      text: `[c=2]LOOT: [c=3]${round(eff_loot)}${heist_state.did_thats_all ? '*' : 'G'}[/c][/c]`,
+      text: `[c=2]LOOT: [c=3]${eff_loot > 9999 ? '1mil*' :
+      `${round(eff_loot)}${heist_state.did_thats_all ? '*' : 'G'}`}[/c][/c]`,
     });
   }
 

@@ -63,7 +63,7 @@ import {
 } from './binds';
 import { blend } from './blend';
 import './dialog_data'; // side effects
-import { dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
+import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
 import { DIALOG_VIEWPORT, FONT_HEIGHT, game_height, game_width } from './globals';
 import {
   curMap,
@@ -414,6 +414,7 @@ class PlayerState {
   is_flipped: boolean[] = [];
   picks: number[] = [];
   heists: number[] = [];
+  did_hint = 0;
 }
 let player_state = new PlayerState();
 
@@ -464,6 +465,19 @@ function stateLockPickInit(num_tumblers: number, pick_state_in: PickState | null
     player_state.picks = [1, 2];
     for (let ii = 2; ii < player_state.num_picks; ++ii) {
       player_state.picks.unshift(COMPOUND_PICKS[ii - 2]);
+    }
+  }
+  if (player_state.did_hint === 0 && player_state.num_picks > 2) {
+    player_state.did_hint = 1;
+    dialog('advancedpicks');
+    for (let ii = 0; ii < pick_state.lock.length; ii+=2) {
+      if (randInt(2)) {
+        pick_state.lock[ii] = 1;
+        pick_state.lock[ii+1] = 2;
+      } else {
+        pick_state.lock[ii] = 2;
+        pick_state.lock[ii+1] = 1;
+      }
     }
   }
   return pick_state;
@@ -811,6 +825,7 @@ function leavePicking(): void {
   } else {
     playSound('fail');
   }
+  queueTransitionPaletteCrunchUpDown(250);
   finishUnlocking(pick_state.progress === pick_state.lock.length, pick_state.bonus, pick_state.progress);
   if (isJailbreak()) {
     player_state.mode = 'town';
@@ -1070,6 +1085,7 @@ export function topOfFrame(is_title: boolean): void {
 
 export function startUnlocking(num_tumblers: number, pick_state_in: PickState | null): PickState {
   player_state.mode = 'unlock';
+  queueTransitionPaletteCrunchUpDown(250);
   return stateLockPickInit(num_tumblers, pick_state_in);
 }
 
@@ -1275,7 +1291,7 @@ export function main(): void {
 
     // engine.setState(statePlay);
     // player_state.num_picks = 10;
-    startHeist(6);
+    startHeist(0);
     // startTown(false, false);
     // startUnlocking(10, null);
     // dialog('informant');
