@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="2026.09.14" name="gfx" tilewidth="14" tileheight="14" tilecount="23" columns="0">
+<tileset version="1.10" tiledversion="2026.09.14" name="gfx" tilewidth="14" tileheight="14" tilecount="28" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="0">
   <image source="../src/client/atlases/gfx/chest.png" width="14" height="14"/>
@@ -69,6 +69,21 @@
  </tile>
  <tile id="23">
   <image source="../src/client/atlases/gfx/event-2.png" width="14" height="14"/>
+ </tile>
+ <tile id="24">
+  <image source="../src/client/atlases/gfx/wall-h-bottom.png" width="14" height="14"/>
+ </tile>
+ <tile id="25">
+  <image source="../src/client/atlases/gfx/wall-ll.png" width="14" height="14"/>
+ </tile>
+ <tile id="26">
+  <image source="../src/client/atlases/gfx/wall-lr.png" width="14" height="14"/>
+ </tile>
+ <tile id="27">
+  <image source="../src/client/atlases/gfx/wall-upper-corner.png" width="14" height="14"/>
+ </tile>
+ <tile id="28">
+  <image source="../src/client/atlases/gfx/wall-left-t.png" width="14" height="14"/>
  </tile>
  <wangsets>
   <wangset name="wall" type="edge" tile="-1">

@@ -2,7 +2,7 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* playtest, buy picks
+* new shopkeeper sprite
 
 Pre-prelease
 * re-check seeds for all special houses

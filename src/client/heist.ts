@@ -99,6 +99,7 @@ const HEISTS = [{
   fixed_seed: 0,
   intro_dialog: '',
   double_bonus: 30,
+  set: '',
 }, {
   guards_initial: 2,
   guards_total: 6,
@@ -118,6 +119,7 @@ const HEISTS = [{
   fixed_seed: 0,
   intro_dialog: '',
   double_bonus: 50,
+  set: '',
 }, {
   guards_initial: 2,
   guards_total: 10,
@@ -137,6 +139,7 @@ const HEISTS = [{
   fixed_seed: 0,
   intro_dialog: '',
   double_bonus: 75,
+  set: '',
 }, {
   // special house #1
   guards_initial: 2,
@@ -159,6 +162,7 @@ const HEISTS = [{
   reward_dialog: 'special1',
   reward_goal: 'find2a',
   double_bonus: 30,
+  set: 'set2-',
 }, {
   // special house #2
   guards_initial: 3,
@@ -181,6 +185,7 @@ const HEISTS = [{
   reward_dialog: 'special2',
   reward_goal: 'find3a',
   double_bonus: 40,
+  set: 'set2-',
 }, {
   // special house #3
   guards_initial: 8,
@@ -203,6 +208,7 @@ const HEISTS = [{
   reward_dialog: 'special3',
   reward_goal: 'outtahere',
   double_bonus: 40,
+  set: 'set2-',
 }, {
   // debug
   guards_initial: 1,
@@ -222,6 +228,7 @@ const HEISTS = [{
   tumblers: [2, 0], // [base + range*2]
   double_bonus: 20,
   fixed_seed: 1,
+  set: 'set2-',
 }];
 type HeistDef = typeof HEISTS[number];
 
@@ -244,6 +251,7 @@ const TOWNDEF: HeistDef = {
   fixed_seed: 0,
   intro_dialog: '',
   double_bonus: 0,
+  set: '',
 };
 
 type MapEvent = {
@@ -326,6 +334,7 @@ Z.LIGHT = 40;
 Z.HERO = 50;
 Z.GUARDS = 51;
 Z.CEILING = 60;
+Z.DOOR_HIGHZ = 60;
 Z.BACKGROUND = 80;
 Z.UI = 90;
 Z.DIALOG = 100;
@@ -338,6 +347,11 @@ const TILE_Z: Rec<string, number> = {
   'wall-h': Z.WALLS,
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
+  'wall-h-bottom': Z.WALLS,
+  'wall-ll': Z.WALLS,
+  'wall-lr': Z.WALLS,
+  'wall-upper-corner': Z.WALLS,
+  'wall-left-t': Z.WALLS,
   'gate': Z.DOORS,
   'celldoor': Z.DOORS,
   'door-v': Z.DOORS,
@@ -400,6 +414,11 @@ function tilesToCells(level: Level): void {
         case 'wall-corner':
         case 'jail':
         case 'shop':
+        case 'wall-h-bottom':
+        case 'wall-ll':
+        case 'wall-lr':
+        case 'wall-upper-corner':
+        case 'wall-left-t':
           row.push('wall');
           break;
         case 'door-v':
@@ -466,6 +485,11 @@ const TILED_TILESET: Rec<number, string> = {
   21: 'gate',
   22: 'celldoor',
   23: 'event-2',
+  24: 'wall-h-bottom',
+  25: 'wall-ll',
+  26: 'wall-lr',
+  27: 'wall-upper-corner',
+  28: 'wall-left-t',
 };
 function levelFromJSON(json: DataObject, jailbreak: boolean): Level {
   let level = new Level(TOWNDEF);
@@ -2156,7 +2180,7 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   });
   camera2d.shift(
     clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
-    clamp(-centery + hy, -rect.y, level.h * TILESIZE - rect.h));
+    clamp(-centery + hy, -rect.y - TILESIZE, level.h * TILESIZE - rect.h));
   let mapped_pos0 = [0,0];
   camera2d.domToVirtual(mapped_pos0, [mapped_box.x, mapped_box.y]);
   let mapped_pos1 = [0,0];
@@ -2189,6 +2213,7 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   let y0 = floor(mapped_pos0[1] / TILESIZE);
   let y1 = floor(mapped_pos1[1] / TILESIZE);
   let { tiles, chests, guards, w, h } = level;
+  let { set } = level.def;
   for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
     for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
       let spr = tiles[yy][xx];
@@ -2197,7 +2222,8 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
       }
       let z = TILE_Z[spr];
       assert(z);
-      autoAtlas('gfx', spr).draw({
+      let spr2 = set ? `${set}${spr}` : spr;
+      autoAtlas('gfx', spr2).draw({
         x: xx * TILESIZE,
         y: yy * TILESIZE,
         w: TILESIZE,
@@ -2205,12 +2231,12 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
         z,
       });
       if (spr === 'door-h') {
-        autoAtlas('gfx', 'door-h-highz').draw({
+        autoAtlas('gfx', `${set}door-h-highz`).draw({
           x: xx * TILESIZE,
           y: yy * TILESIZE,
           w: TILESIZE,
           h: TILESIZE,
-          z: Z.LIGHT + 2,
+          z: Z.DOOR_HIGHZ,
         });
       }
     }
