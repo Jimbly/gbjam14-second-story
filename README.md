@@ -2,9 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* new music:
-  * casing for new scene, plus jailbreak?
-  * other track for special houses (needs muffled)?
 * playtest whole flow (add lockpick skip button?)
 * track high scores (goal -> low time -> money)?
 

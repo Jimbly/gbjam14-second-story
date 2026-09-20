@@ -96,6 +96,7 @@ import {
   doTimer,
   doubleLockBonus,
   finishUnlocking,
+  heistIsSpecial,
   initCutsceneMap,
   // getHeistState,
   initTownMap,
@@ -1174,8 +1175,12 @@ export function topOfFrame(is_title: boolean): void {
     }
   }
 
-  let music_track = is_title || player_state.mode === 'town' || isJailbreak() ? 'music' :
-    player_state.mode === 'unlock' ? 'heist_combat' : 'heist_explore';
+  let music_track = is_title ? 'music' :
+    player_state.mode === 'town' && curMap() === 'ramirrors' || isJailbreak() ? 'casing' :
+    player_state.mode === 'town' ? 'music' :
+    heistIsSpecial() ?
+      player_state.mode === 'unlock' ? 'special_combat' : 'special_explore' :
+      player_state.mode === 'unlock' ? 'heist_combat' : 'heist_explore';
   if (unmuffle_delay) {
     unmuffle_delay -= engine.getFrameDt();
     if (unmuffle_delay < 0) {
@@ -1454,7 +1459,7 @@ export function main(): void {
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
     player_state.goal = 'search3';
-    // initCutsceneMap('ramirrors');
+    initCutsceneMap('ramirrors');
     startHeist(5);
     // getHeistState().loot = 200;
     // startTown(false, false);

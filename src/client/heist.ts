@@ -1105,6 +1105,10 @@ let cur_map: string;
 export function curMap(): string {
   return cur_map;
 }
+export function heistIsSpecial(): boolean {
+  return Boolean(level.def.reward_goal);
+}
+
 function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
   let json = LEVELS[name];
   cur_map = name;
@@ -2262,10 +2266,16 @@ export function doTimer(dt: number): void {
   }
   if (heist_state.timer <= 0) {
     heist_state.timer = 0;
+    let is_final = heist_state.loot > 500000;
+    if (is_final) {
+      heist_state.loot = 0;
+    }
     dialogPush({
       name: HERO,
-      text: 'Oh no! Outta time, this place is surrounded.\n\n' +
-        '[c=0]I guess I gotta drop half of what I found and get out of here...[/c]',
+      // eslint-disable-next-line prefer-template
+      text: 'Oh no! Outta time, this place is surrounded.' +
+        (is_final ? '\n\nI\'ll have to come back and try this again later...' :
+        heist_state.loot ? '\n\n[c=0]I guess I gotta drop half of what I found and get out of here...[/c]' : ''),
       buttons: [{
         label: 'At least I wasn\'t caught...',
         cb: function () {
@@ -2306,6 +2316,8 @@ function lightPassApply(): void {
   });
 }
 
+let mapped_pos0: JSVec2 = [0,0];
+let mapped_pos1: JSVec2 = [0,0];
 function doHeistViewSub(rect: UIBox, dt: number): void {
   let { pos } = heist_state;
 
@@ -2323,9 +2335,7 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
   camera2d.shift(
     clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
     clamp(-centery + hy, -rect.y - TILESIZE, level.h * TILESIZE - rect.h));
-  let mapped_pos0 = [0,0];
   camera2d.domToVirtual(mapped_pos0, [mapped_box.x, mapped_box.y]);
-  let mapped_pos1 = [0,0];
   camera2d.domToVirtual(mapped_pos1, [mapped_box.x + mapped_box.w, mapped_box.y + mapped_box.h]);
 
   effectsQueue(Z.LIGHTPASS, lightPassCapture);
@@ -2634,7 +2644,7 @@ function doFloaters(dt: number): void {
       text_w = max(text_w, ww);
     });
     xx -= floor(text_w/2);
-    xx = clamp(xx, 0, game_width - text_w - 4);
+    xx = clamp(xx, mapped_pos0[0], mapped_pos1[0] - text_w - 4);
     let h = markdownAuto({
       x: xx,
       y: yy,
@@ -2655,6 +2665,9 @@ function doFloaters(dt: number): void {
 
   if (!floaters.length && caught && !dialogMoveLocked()) {
     let kept_loot = ceil(heist_state.loot * 0.5);
+    if (heist_state.loot > 500000) {
+      kept_loot = 0;
+    }
     heist_state.loot = 0;
     dialogPush({
       text: 'The guards take everything you\'ve found and lock you up.\n\n' +
