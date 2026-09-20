@@ -2,11 +2,8 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* playtest whole flow (add lockpick skip button?)
 * track high scores (goal -> low time -> money)?
 
-Pre-release
-* re-check seeds for all special houses
 Pos-release
 * screenshots - gameplay gif at least for one; maybe thumbnail?
 

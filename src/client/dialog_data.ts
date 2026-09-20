@@ -289,7 +289,7 @@ dialogRegister({
   },
   mugged: function () {
     dialogLine(HERO,
-      'What just happened? Someone robbed [c=0]me[/c], of all people?! I swear they will regret that.',
+      'What just happened? Someone robbed [c=0]me,[/c] of all people?! I swear they will regret that.',
       dialogLine.bind(null, HERO,
         'So much for honor among thieves. Well, at least I\'ve still got a couple [c=0]basic lockpicks[/c] in my boot.  I may be old, but I\'ll get some gold...',
       )
@@ -428,8 +428,8 @@ dialogRegister({
         'You seem to still have a full purse?',
         'That\'s true, but I like that money where it is, if I were to spend it, my belt would feel too light.',
         'I see.',
-        'Ponyless, but not penniless, that\'s good enough for me!',
-        'So, about Ramirrors Palace\'s security?',
+        'Ponyless, but not penniless, that\'s what I always say!',
+        'Always? Uh, so, about Ramirrors Palace\'s security?',
         'Oh, they\'re a tough bunch.',
         'And plentiful, it would seem. Do you think one might turn a blind eye if, say, someone wanted to tour the palace?',
         'Oh, a tour sounds delightful, I\'m sure there might be one that could be made sympathetic to that.',

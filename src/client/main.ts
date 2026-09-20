@@ -97,7 +97,7 @@ import {
   doubleLockBonus,
   finishUnlocking,
   heistIsSpecial,
-  initCutsceneMap,
+  // initCutsceneMap,
   // getHeistState,
   initTownMap,
   isJailbreak,
@@ -172,10 +172,10 @@ const COLOR_PALETTES = [
     0x47758fff, // 0x36868fff,
     0x9ea67eff, // 0x5fc75dff,
   ].map(toVec4),
-  [//crimson - use for special levels
+  [//crimson - modified - use for special levels
     0x1b0326ff,
     0x7a1c4bff,
-    0xba5044ff,
+    0xc77e75ff,
     0xeff9d6ff,
   ].map(toVec4),
 
@@ -984,6 +984,11 @@ function stateLockPick(dt: number): void {
       leavePicking();
     }
   }
+  if (engine.DEBUG && keyDownEdge(KEYS.Y)) {
+    pick_state.bonus += 5;
+    pick_state.progress = pick_state.lock.length;
+    leavePicking();
+  }
 }
 
 const CONTROLS_W = 50;
@@ -1348,7 +1353,7 @@ function nameRender(dialogparam: WithRequired<DialogParam, 'name'>, panel: Panel
     y: panel.y - 12,
     h: 14,
   };
-  if (dialogparam.name !== HERO) {
+  if (dialogparam.name !== HERO && !dialogparam.name.startsWith('HINT')) {
     let text_w = font.getStringWidth(font_style0, 8, dialogparam.name);
     box.x = game_width - text_w - 17;
   }
@@ -1458,12 +1463,12 @@ export function main(): void {
     // engine.setState(statePlay);
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    player_state.goal = 'search3';
-    initCutsceneMap('ramirrors');
-    startHeist(5);
+    // player_state.goal = 'find3b';
+    // initCutsceneMap('ramirrors');
+    // startHeist(4);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);
-    // dialog('informant');
+    // dialog('mugged');
   }
 }
