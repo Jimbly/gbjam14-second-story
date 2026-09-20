@@ -6,6 +6,7 @@ TODO
 * icon
 * screenshots
 * itch page header
+* try on azerty?
 
 Pre-prelease
 * re-check seeds for all special houses
