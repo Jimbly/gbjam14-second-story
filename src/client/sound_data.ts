@@ -21,7 +21,7 @@ export const SOUND_DATA = {
   fail: 'fail',
   failheist: 'new/failure',
   locked: 'locked',
-  victory: 'new/victory',
+  victory: 'new/victory', // quest complete
   bigvictory: 'new/amazing-success',
   mugged: 'new/doot',
 

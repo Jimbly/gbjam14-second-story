@@ -3,7 +3,6 @@ GBJam14 - "Old Gold"
 
 TODO
 * screenshots - gameplay gif at least for one; maybe thumbnail?
-* keep muffle'd audio for a bit after lockpick ends to let the music play
 * try on azerty?
 * track high scores (goal -> low time -> money)?
 

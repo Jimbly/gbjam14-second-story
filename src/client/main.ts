@@ -900,9 +900,11 @@ function drawPickingHUD(dt: number): void {
   );
 }
 
+let unmuffle_delay = 0;
 function leavePicking(): void {
   if (pick_state.progress === pick_state.lock.length) {
     playSound('unlock_success');
+    unmuffle_delay = 2000;
   } else {
     playSound('fail');
   }
@@ -1170,8 +1172,20 @@ export function topOfFrame(is_title: boolean): void {
     }
   }
 
-  tickMusic(is_title || player_state.mode === 'town' || isJailbreak() ? 'music' :
-    player_state.mode === 'unlock' ? 'heist_combat' : 'heist_explore');
+  let music_track = is_title || player_state.mode === 'town' || isJailbreak() ? 'music' :
+    player_state.mode === 'unlock' ? 'heist_combat' : 'heist_explore';
+  if (unmuffle_delay) {
+    unmuffle_delay -= engine.getFrameDt();
+    if (unmuffle_delay < 0) {
+      unmuffle_delay = 0;
+    } else {
+      if (music_track === 'heist_explore') {
+        music_track = 'heist_combat';
+      }
+    }
+  }
+
+  tickMusic(music_track);
   setUICamera();
   drawRect(0, 0, game_width, game_height, Z.CLEARBG, palette[0]);
   let pal: Vec4[] = last_pal && palette_lock ? last_pal :
@@ -1437,7 +1451,7 @@ export function main(): void {
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
     // player_state.goal = 'find2a';
-    startHeist(1);
+    startHeist(6);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

@@ -212,8 +212,8 @@ const HEISTS = [{
   set: 'set2-',
 }, {
   // debug
-  guards_initial: 1,
-  guards_total: 11,
+  guards_initial: 0,
+  guards_total: 1,
   w: 15,
   h: 15,
   room_min_w: 3,
@@ -222,11 +222,11 @@ const HEISTS = [{
   room_max_area: 8*6,
   heist_time: 160000,
   alert_time: 60000,
-  chests: 1,
-  chests_locked: 1,
+  chests: 4,
+  chests_locked: 4,
   chest_value_simple: 100,
   chest_value_locked: 100,
-  tumblers: [2, 0], // [base + range*2]
+  tumblers: [1, 0], // [base + range*2]
   double_bonus: 20,
   fixed_seed: 1,
   set: 'set2-',
