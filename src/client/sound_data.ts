@@ -1,3 +1,4 @@
+import { GlovSoundPlayOpts } from 'glov/client/sound';
 import { playUISound, UISoundID } from 'glov/client/ui';
 
 export const SOUND_DATA = {
@@ -18,15 +19,18 @@ export const SOUND_DATA = {
   pickup: 'pickup',
   thatsall: 'new/victory',
   fail: 'fail',
+  failheist: 'new/failure',
   locked: 'locked',
   victory: 'new/victory',
+  bigvictory: 'new/amazing-success',
   mugged: 'new/doot',
 
   pick_miss: 'new/doot',
-  pick_hit: 'pick_hit',
-  pick_hit_good: 'pick_hit_good',
+  pick_hit: 'new/2up',
+  pick_hit_good: ['new/4up', 'new/3up'],
+  unlock_success: 'new/great-success',
 
-  footstep: 'footstep',
+  footstep: { file: 'new/footstep', volume: 0.3 },
   alert: 'new/time-running-out',
   guard_arrived: 'guard_alert',
   guard_chase: 'guard_alert',
@@ -41,6 +45,6 @@ export function validSoundID(test: string): test is GameSoundID {
   return Boolean((SOUND_DATA as Partial<Record<string, unknown>>)[test]);
 }
 
-export function playSound(sound_id: GameSoundID): void {
-  playUISound(sound_id);
+export function playSound(sound_id: GameSoundID, volume_or_opts?: number | GlovSoundPlayOpts): void {
+  playUISound(sound_id, volume_or_opts);
 }

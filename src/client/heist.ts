@@ -8,7 +8,7 @@ import { ALIGN, fontStyle } from 'glov/client/font';
 import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { keyDown, KEYS } from 'glov/client/input';
 import { markdownAuto } from 'glov/client/markdown';
-import { sound3DListener, soundPlay } from 'glov/client/sound';
+import { sound3DListener } from 'glov/client/sound';
 import {
   BLEND_ADDITIVE,
   blendModeSet,
@@ -1243,7 +1243,7 @@ function doEvent(event: MapEvent): void {
       break;
     case 'celldoor':
       if (!heist_state.did_cell_unlock) {
-        startUnlocking(DEBUG ? 1 : 6, null);
+        startUnlocking(6, null);
       }
       break;
     case 'storyevent2': {
@@ -2029,7 +2029,7 @@ function doGuards(dt: number): void {
 
   if (0) {
     if (closest_footstep) {
-      soundPlay('footstep', {
+      playSound('footstep', {
         pos: [
           closest_footstep[0] * SOUND_SPATIAL_SCALE,
           closest_footstep[1] * SOUND_SPATIAL_SCALE,
@@ -2040,7 +2040,7 @@ function doGuards(dt: number): void {
   }
 
   if (do_footstep) {
-    soundPlay('footstep', (1 - closest_guard[1]/FOOTSTEP_DIST));
+    playSound('footstep', (1 - closest_guard[1]/FOOTSTEP_DIST));
   }
 }
 
@@ -2599,6 +2599,7 @@ function doFloaters(dt: number): void {
         'Luckily you\'re better at hiding your lockpicks than they are at searching...',
       buttons: [{
         label: '',
+        sound: 'failheist',
         cb: function () {
           queueTransitionDitherUpDown(500);
           leaveHeist(false, 0, null, kept_loot || -1);

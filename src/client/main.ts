@@ -82,7 +82,6 @@ import { JSVec4, unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glo
 import {
   actionCheckBinds,
   actionEdge,
-  ActionKey,
   actionTriggerEdge,
   bindsInit,
 } from './binds';
@@ -769,9 +768,11 @@ function usePick(idx: number): void {
 function drawPicks(): void {
   let { picks, is_flipped } = player_state;
   if (!dialogMoveLocked() && actionEdge('right')) {
+    playSound('rollover');
     pick_state.selected = min(pick_state.selected + 1, picks.length - 1);
   }
   if (!dialogMoveLocked() && actionEdge('left')) {
+    playSound('rollover');
     pick_state.selected = max(pick_state.selected - 1, 0);
   }
 
@@ -901,7 +902,7 @@ function drawPickingHUD(dt: number): void {
 
 function leavePicking(): void {
   if (pick_state.progress === pick_state.lock.length) {
-    playSound('pickup');
+    playSound('unlock_success');
   } else {
     playSound('fail');
   }
@@ -930,9 +931,9 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     if (new_goal) {
       player_state.goal = new_goal;
     }
-    playSound('victory');
+    playSound('bigvictory');
   } else {
-    playSound('fail');
+    // sound played on UI action: playSound('failheist');
   }
   player_state.money += loot;
   player_state.jailbreak = jailbreak;
@@ -1017,8 +1018,15 @@ const DPADS = [
   ['left', 'down'],
   [],
 ] as const;
+const DPAD_OFFS = {
+  down: [16, 32],
+  right: [32, 16],
+  up: [16, 0],
+  left: [0, 16],
+};
+type ActionKeyDpad = 'down' | 'left' | 'up' | 'right';
 const DPAD_NONE = DPADS[8];
-let last_dpad: readonly ActionKey[] = DPAD_NONE;
+let last_dpad: readonly ActionKeyDpad[] = DPAD_NONE;
 let last_accept = false;
 let last_cancel = false;
 function onScreenControls(): void {
@@ -1075,20 +1083,47 @@ function onScreenControls(): void {
     actionTriggerEdge('cancel', cancel_down);
   }
 
-  let dpaddir: readonly ActionKey[] = DPAD_NONE;
+  let dpaddir: readonly ActionKeyDpad[] = DPAD_NONE;
   if (mouseDownOverBounds({
     x: -1000, w: 1000 + game_width / 2,
     y: -1000, h: 2000
   })) {
     let pos = mousePos();
     let delta = v2sub([0,0], pos, [dpad.x + dpad.w/2, dpad.y + dpad.h/2]);
-    if (v2length(delta) < 50) {
-      let angle = atan2(delta[0], delta[1]);
-      angle += PI/8;
-      while (angle < 0) {
-        angle += PI * 2;
+    if ((delta[0] || delta[1]) && v2length(delta) < 60) {
+      const ANGLE_IGNORE = 10;
+      let angle;
+      if (abs(delta[0]) < 10 || abs(delta[1]) < 10) {
+        // no diagonals
+        if (abs(delta[0]) > abs(delta[1])) {
+          if (delta[0] < 0) {
+            angle = 6;
+          } else {
+            angle = 2;
+          }
+        } else {
+          if (delta[1] < 0) {
+            angle = 4;
+          } else {
+            angle = 0;
+          }
+        }
+      } else {
+        for (let ii = 0; ii < 2; ++ii) {
+          if (delta[ii] < 0) {
+            delta[ii] = min(0, delta[ii] + ANGLE_IGNORE);
+          } else {
+            delta[ii] = max(0, delta[ii] - ANGLE_IGNORE);
+          }
+        }
+
+        angle = atan2(delta[0], delta[1]);
+        angle += PI/8;
+        while (angle < 0) {
+          angle += PI * 2;
+        }
+        angle = floor(angle / (2*PI) * 8);
       }
-      angle = floor(angle / (2*PI) * 8);
       dpaddir = DPADS[angle];
     }
   }
@@ -1109,6 +1144,16 @@ function onScreenControls(): void {
   }
 
   autoAtlas('gfx', 'dpad').draw(dpad);
+  for (let ii = 0; ii < dpaddir.length; ++ii) {
+    let dir = dpaddir[ii];
+    autoAtlas('gfx', `dpad-down-${dir}`).draw({
+      x: dpad.x + DPAD_OFFS[dir][0],
+      y: dpad.y + DPAD_OFFS[dir][1],
+      w: 16,
+      h: 16,
+      z: Z.CONTROLS + 1,
+    });
+  }
   autoAtlas('gfx', accept_down ? 'button-b-down' : 'button-b').draw(button_accept);
   autoAtlas('gfx', cancel_down ? 'button-a-down' : 'button-a').draw(button_cancel);
 }
@@ -1392,7 +1437,7 @@ export function main(): void {
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
     // player_state.goal = 'find2a';
-    // startHeist(6);
+    startHeist(1);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

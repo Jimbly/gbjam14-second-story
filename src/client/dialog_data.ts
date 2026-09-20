@@ -509,7 +509,7 @@ dialogRegister({
         text: 'Okay, enough of this town, I guess to really retire I\'m going to have to start a goat farm in the country...',
         buttons: [{
           label: '',
-          sound: 'victory',
+          sound: 'bigvictory',
           cb: function () {
             dialogPush({
               text: 'CONGRATULATIONS! YOU WIN!\n\n' +
