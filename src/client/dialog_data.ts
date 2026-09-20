@@ -21,7 +21,7 @@ import {
   dialogPush,
   dialogRegister,
 } from './dialog_system';
-import { playerFloater } from './heist';
+import { initCutsceneMap, playerFloater } from './heist';
 import { GOAL_LIST, GoalID, playerState, saveGame, startHeist } from './main';
 import { titleInit } from './title';
 
@@ -157,44 +157,31 @@ dialogRegister({
       }, {
         label: 'OLD MONEY ROW ***',
         cb: function () {
-          if (goal === 'find3b' || goal === 'find3c' || goal === 'buygift' || goal === 'search3') {
+          if (goal === 'find3b' || goal === 'find3c' || goal === 'buygift' || goal === 'search3' || goal === 'search3b') {
             dialogPush({
               text: 'Am I ready to finish my revenge?',
               buttons: [{
                 label: 'Rob Goldenhare Palace',
                 cb: function () {
                   if (goal === 'search3') {
-                    dialogLine(HERO, 'Excuse me... are you Humphrey?',
-                      dialogLine.bind(null, 'HUMPHREY', 'Uh, depends who\'s asking?',
-                        dialogLine.bind(null, HERO, 'Well, sir. Is it alright if I call you "Hump"?',
-                          dialogLine.bind(null, 'HUMPHREY', 'It absolutely ---',
-                            dialogLine.bind(null, HERO, 'Well Hump, I was looking to, uh, tour, the palace, and I thought maybe this [c=0]DIAMOND TIARA[/c] would be something you\'d be interested in...',
-                              dialogLine.bind(null, HERO, 'Well, not you, specifically, but for your wife.',
-                                dialogLine.bind(null, 'HUMPHREY', 'This is so going to get me fired... but it\'s either that or another divorce... just don\'t tell anyone it was me.',
-                                  dialogLine.bind(null, HERO, 'I am the soul of discretion. Hump.', function () {
-                                    startHeist(5);
-                                  })
-                                )
-                              )
-                            )
-                          )
-                        )
-                      )
-                    );
+                    initCutsceneMap('ramirrors');
+                  } else if (goal === 'search3b') {
+                    startHeist(5);
                   } else {
                     if (goal === 'find3b') {
-                      playerState().goal = 'find3c';
+                      initCutsceneMap('ramirrors');
+                    } else {
+                      dialogPush({
+                        name: HERO,
+                        text: 'Oh boy, that\'s too many guards, even for me. I\'ll have to find a safe way past them.',
+                        buttons: [{
+                          label: '',
+                          cb: function () {
+                            // returns to town
+                          }
+                        }],
+                      });
                     }
-                    dialogPush({
-                      name: HERO,
-                      text: 'Oh boy, that\'s too many guards, even for me. I\'ll have to find a safe way past them.',
-                      buttons: [{
-                        label: '',
-                        cb: function () {
-                          // returns to town
-                        }
-                      }],
-                    });
                   }
                 },
               }, {

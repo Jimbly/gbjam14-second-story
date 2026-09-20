@@ -18,7 +18,7 @@ import {
 import { active as transitionActive } from 'glov/client/transition';
 import { drawBox, drawLine, drawRect, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { randCreate, shuffleArray } from 'glov/common/rand_alea';
-import { DataObject, Rec } from 'glov/common/types';
+import { DataObject, Rec, VoidFunc } from 'glov/common/types';
 import { clamp, easeOut, ridx, sign } from 'glov/common/util';
 import {
   JSVec2,
@@ -38,7 +38,7 @@ import {
 } from 'glov/common/vmath';
 import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
-import { HERO, signWithName } from './dialog_data';
+import { dialogLine, HERO, signWithName } from './dialog_data';
 import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import {
@@ -52,6 +52,7 @@ import {
   queueTransitionPaletteCrunchUpDown,
   randInt,
   setUICamera,
+  startHeist,
   startUnlocking
 } from './main';
 import { optionsMenu } from './options';
@@ -65,6 +66,7 @@ const LEVELS = {
   town: require('./town.json'), // eslint-disable-line n/global-require
   jail: require('./jail.json'), // eslint-disable-line n/global-require
   shop: require('./shop.json'), // eslint-disable-line n/global-require
+  ramirrors: require('./ramirrors.json'), // eslint-disable-line n/global-require
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -365,7 +367,7 @@ const TILE_Z: Rec<string, number> = {
   'floor-1': Z.FLOORS,
   'floor-1b': Z.FLOORS,
   'loot': Z.FLOORS,
-  'floor-2': Z.CEILING,
+  'floor-2': Z.FLOORS,
   'chest-opened': Z.CHESTS,
   'chest-aborted': Z.CHESTS,
   'guard-right': Z.HERO,
@@ -426,6 +428,9 @@ function tilesToCells(level: Level): void {
         case 'wall-lr':
         case 'wall-upper-corner':
         case 'wall-left-t':
+        case 'fire1':
+        case 'guard-left':
+        case 'guard-right':
           row.push('wall');
           break;
         case 'door-v':
@@ -442,8 +447,6 @@ function tilesToCells(level: Level): void {
           break;
         case 'shopkeeper':
         case 'npc':
-        case 'guard-left':
-        case 'guard-right':
         case 'floor-1':
         case 'floor-2':
         case 'loot':
@@ -500,6 +503,7 @@ const TILED_TILESET: Rec<number, string> = {
   27: 'wall-upper-corner',
   28: 'wall-left-t',
   29: 'shopkeeper',
+  30: 'fire1',
 };
 function levelFromJSON(json: DataObject, jailbreak: number): Level {
   let level = new Level(TOWNDEF);
@@ -1119,6 +1123,13 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
           pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
           type: 'jailenter',
         });
+      } else if (tile === 'door-h') {
+        if (name === 'ramirrors') {
+          events.push({
+            pos: [xx, yy],
+            type: 'exit',
+          });
+        }
       } else if (tile === 'door-v') {
         if (xx === level.w - 1 && name === 'town') {
           events.push({
@@ -1132,6 +1143,11 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
               type: 'jailenter',
             });
           }
+        } else if (name === 'ramirrors') {
+          events.push({
+            pos: [xx, yy],
+            type: 'startheist5',
+          });
         }
       } else if (tile === 'celldoor') {
         events.push({
@@ -1165,6 +1181,9 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
           pos: [xx, yy],
           type: 'townexit',
         });
+      } else if (tile === 'fire1') {
+        level.fires.push({ x: xx, y: yy });
+        tiles[yy][xx] = 'floor-2';
       }
     }
   }
@@ -1199,11 +1218,18 @@ export function playerFloater(msg: string): void {
 }
 
 let end_of_frame_load: null | keyof typeof LEVELS;
+let end_for_frame_cb: null | VoidFunc;
 
 function doEvent(event: MapEvent): void {
   switch (event.type) {
+    case 'startheist5':
+      // queueTransitionDitherUpDown(500);
+      end_for_frame_cb = function () {
+        startHeist(5);
+      };
+      break;
     case 'exit':
-      if (!heist_state.loot && !heist_state.found_special_reward) {
+      if (!heist_state.loot && !heist_state.found_special_reward && cur_map === 'heist') {
         dialogPush({
           text: 'Are you sure you want to leave?  You have not found anything yet.',
           buttons: [{
@@ -1218,9 +1244,11 @@ function doEvent(event: MapEvent): void {
         });
       } else {
         queueTransitionDitherUpDown(500);
-        leaveHeist(true, heist_state.loot,
-          heist_state.found_special_reward ? level.def.reward_goal as GoalID : null,
-          0);
+        end_for_frame_cb = function () {
+          leaveHeist(true, heist_state.loot,
+            heist_state.found_special_reward ? level.def.reward_goal as GoalID : null,
+            0);
+        };
       }
       break;
     case 'shopenter':
@@ -1248,36 +1276,69 @@ function doEvent(event: MapEvent): void {
       break;
     case 'storyevent2': {
       let player_state = playerState();
-      if (player_state.goal !== 'intro0') {
-        break;
+      if (player_state.goal === 'intro0') {
+        player_state.goal = 'intro1';
+        dialog('intro');
+      } else if (cur_map === 'ramirrors') {
+        if (player_state.goal === 'search3') {
+          dialogLine(HERO, 'Excuse me... are you Humphrey?',
+            dialogLine.bind(null, 'HUMPHREY', 'Uh, depends who\'s asking?',
+              dialogLine.bind(null, HERO, 'Well, sir. Is it alright if I call you "Hump"?',
+                dialogLine.bind(null, 'HUMPHREY', 'It absolutely ---',
+                  // eslint-disable-next-line @stylistic/max-len
+                  dialogLine.bind(null, HERO, 'Well Hump, I was looking to, uh, tour, the palace, and I thought maybe this [c=0]DIAMOND TIARA[/c] would be something you\'d be interested in...',
+                    dialogLine.bind(null, HERO, 'Well, not you, specifically, but for your wife.',
+                      // eslint-disable-next-line @stylistic/max-len
+                      dialogLine.bind(null, 'HUMPHREY', 'This is so going to get me fired... but it\'s either that or another divorce... just don\'t tell anyone it was me.',
+                        dialogLine.bind(null, HERO, 'I am the soul of discretion. Hump.', function () {
+                          level.cells[12][3] = 'floor';
+                          level.tiles[12][3] = 'floor-1';
+                          player_state.goal = 'search3b';
+                        })
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          );
+        } else if (player_state.goal !== 'search3b') {
+          dialogLine('HUMPHREY', 'Get lost, buddy!');
+        }
       }
-      player_state.goal = 'intro1';
-      dialog('intro');
     } break;
     case 'storyevent1': {
       let player_state = playerState();
-      if (player_state.goal !== 'intro1') {
-        break;
-      }
-      anim = animationSequencerCreate();
-      anim.add(0, 1000, (progress) => {
-        autoAtlas('gfx', 'hero-right').draw({
-          x: (heist_state.pos[1] - 0.5) * TILESIZE + (progress - 0.5) * 20 * TILESIZE,
-          y: (heist_state.pos[1] - 0.5) * TILESIZE,
-          z: Z.HERO + 1,
-          w: TILESIZE,
-          h: TILESIZE,
-          color: [2, 2, 2, 1],
+      if (player_state.goal === 'intro1') {
+        anim = animationSequencerCreate();
+        anim.add(0, 1000, (progress) => {
+          autoAtlas('gfx', 'hero-right').draw({
+            x: (heist_state.pos[1] - 0.5) * TILESIZE + (progress - 0.5) * 20 * TILESIZE,
+            y: (heist_state.pos[1] - 0.5) * TILESIZE,
+            z: Z.HERO + 1,
+            w: TILESIZE,
+            h: TILESIZE,
+            color: [2, 2, 2, 1],
+          });
         });
-      });
-      anim.add(500, 0, (progress) => {
-        playerFloater('[c=2]#$!?');
-        playSound('mugged');
-      });
-      anim.add(1000, 0, (progress) => {
-        dialog('mugged');
-      });
-      player_state.goal = 'mugged';
+        anim.add(500, 0, (progress) => {
+          playerFloater('[c=2]#$!?');
+          playSound('mugged');
+        });
+        anim.add(1000, 0, (progress) => {
+          dialog('mugged');
+        });
+        player_state.goal = 'mugged';
+      } else if (player_state.goal === 'find3b' && cur_map === 'ramirrors') {
+        player_state.goal = 'find3c';
+        dialogPush({
+          name: HERO,
+          text: 'Oh boy, that\'s too many guards, even for me. I\'ll have to find a safe way past them.',
+          buttons: [{
+            label: '',
+          }],
+        });
+      }
 
     } break;
     case 'jailloot': {
@@ -1308,6 +1369,7 @@ export function stateHeistInit(index: number): void {
   let def = HEISTS[index] || HEISTS[0];
   genLevel(def);
   console.log(level.debug());
+  cur_map = 'heist';
   heist_state = new HeistState();
   let pos = heist_state.pos = [
     level.entrance[0] + 1.5,
@@ -2572,7 +2634,7 @@ function doFloaters(dt: number): void {
       text_w = max(text_w, ww);
     });
     xx -= floor(text_w/2);
-    xx = clamp(xx, camera2d.x0(), camera2d.x1() - text_w - 4);
+    xx = clamp(xx, 0, game_width - text_w - 4);
     let h = markdownAuto({
       x: xx,
       y: yy,
@@ -2674,6 +2736,10 @@ export function stateHeist(dt: number, is_town: boolean):void {
     initMap(end_of_frame_load, 0);
     end_of_frame_load = null;
   }
+  if (end_for_frame_cb) {
+    end_for_frame_cb();
+    end_for_frame_cb = null;
+  }
 }
 
 export function initTownMap(initial: boolean, jailbreak: number): void {
@@ -2705,6 +2771,18 @@ export function initTownMap(initial: boolean, jailbreak: number): void {
     heist_state.dir = 1;
     level.cells[1][4] = 'wall'; // block exiting
     level.cells[3][4] = 'wall'; // block visiting guards
+  }
+}
+
+export function initCutsceneMap(which: 'ramirrors'): void {
+  queueTransitionPaletteCrunchUpDown(500);
+  initMap(which, 0);
+  if (which === 'ramirrors') {
+    heist_state.pos = [
+      13.5,
+      23.5,
+    ];
+    heist_state.dir = 2;
   }
 }
 

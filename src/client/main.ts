@@ -34,7 +34,8 @@ export const GOALS = {
   find3b: 'Rob Goldenhare Palace',
   find3c: 'Learn about the private security',
   buygift: 'Deal with the shady guard',
-  search3: 'Rob Goldenhare Palace',
+  search3: 'Rob Goldenhare Palace', // need to give gift
+  search3b: 'Rob Goldenhare Palace',
   outtahere: 'Get Outta Town',
 };
 export type GoalID = keyof typeof GOALS;
@@ -95,6 +96,7 @@ import {
   doTimer,
   doubleLockBonus,
   finishUnlocking,
+  initCutsceneMap,
   // getHeistState,
   initTownMap,
   isJailbreak,
@@ -1192,7 +1194,8 @@ export function topOfFrame(is_title: boolean): void {
     color_pal_idx_override !== -1 ? COLOR_PALETTES[color_pal_idx_override] :
     settingsGet('palette') ? PALETTE_GB :
     is_title ? PALETTE_GB :
-    player_state.mode === 'town' ? curMap() === 'town' ? COLOR_PALETTES[2] : COLOR_PALETTES[1] :
+    player_state.mode === 'town' ? curMap() === 'town' ? COLOR_PALETTES[2] :
+    curMap() === 'ramirrors' ? COLOR_PALETTES[3] : COLOR_PALETTES[1] :
     last_heist_index >= 3 ? COLOR_PALETTES[3] :
     PALETTE_DARK;
     // heistStarted() || player_state.mode === 'unlock' ? PALETTE_DARK : COLOR_PALETTES[4];
@@ -1450,8 +1453,9 @@ export function main(): void {
     // engine.setState(statePlay);
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    // player_state.goal = 'find2a';
-    startHeist(6);
+    player_state.goal = 'search3';
+    // initCutsceneMap('ramirrors');
+    startHeist(5);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

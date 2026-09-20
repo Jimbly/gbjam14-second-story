@@ -2,7 +2,6 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* add outdoor scene where you approach the final palace?
 * new music:
   * casing for new scene, plus jailbreak?
   * other track for special houses (needs muffled)?

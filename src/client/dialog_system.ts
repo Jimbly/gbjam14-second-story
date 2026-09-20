@@ -51,7 +51,7 @@ import {
   v2distSq,
   vec4,
 } from 'glov/common/vmath';
-import { actionEdge, ActionKey } from './binds';
+import { actionDown, actionEdge, ActionKey } from './binds';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
 import { getPaletteFont } from './main';
@@ -122,6 +122,7 @@ let name_render_cb: DialogNameRenderCB | null = null;
 
 function ff(): boolean {
   return keyDown(KEYS.SPACE) || keyDown(KEYS.ENTER) || keyDown(KEYS.ESC) ||
+    actionDown('accept') || actionDown('cancel') ||
     inputPadMode() && (
       padButtonDown(PAD.LEFT_TRIGGER) || padButtonDown(PAD.RIGHT_TRIGGER) ||
       padButtonDown(PAD.A) || padButtonDown(PAD.B)

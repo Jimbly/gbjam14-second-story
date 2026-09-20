@@ -12,7 +12,15 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 91.79304192685105,
-                "y": 15.173951828724356
+                "y": 119.7056199821588
+            }
+        },
+        "ramirrors.tmx": {
+            "scale": 5.5,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 196,
+                "y": 253.1818181818182
             }
         },
         "shop.tmx": {
@@ -45,6 +53,7 @@
     "project": "gbjam14.tiled-project",
     "properties.customExpanded": true,
     "recentFiles": [
+        "ramirrors.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1
