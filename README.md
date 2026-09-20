@@ -3,8 +3,11 @@ GBJam14 - "Old Gold"
 
 TODO
 * screenshots - gameplay gif at least for one; maybe thumbnail?
-* try on azerty?
 * track high scores (goal -> low time -> money)?
+* new music:
+  * casing for new scene, plus jailbreak?
+  * other track for special houses (needs muffled)?
+* new button select sound
 
 Pre-prelease
 * re-check seeds for all special houses
