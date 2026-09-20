@@ -11,7 +11,7 @@ export const SOUND_DATA = {
   msg_out: 'msg_out',
 
   // UI sounds
-  button_click: 'button_click',
+  button_click: { file: 'button_click', volume: 0.5 },
   button_click2: { file: 'button_click', volume: 0.125 }, // touch movement controls - just hear footsteps
   // menus/general/etc
   rollover: { file: 'rollover', volume: 0.25 },
