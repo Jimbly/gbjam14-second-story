@@ -1,11 +1,14 @@
 {
-    "activeFile": "",
+    "activeFile": "ramirrors.tmx",
     "expandedProjectPaths": [
+        "."
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
         "gfx.tsx": {
-            "dynamicWrapping": true
+            "dynamicWrapping": true,
+            "scaleInDock": 4,
+            "scaleInEditor": 5.5
         },
         "jail.tmx": {
             "scale": 8.007142857142856,
@@ -19,8 +22,8 @@
             "scale": 5.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 196,
-                "y": 253.1818181818182
+                "x": 243.09090909090912,
+                "y": 183.72727272727275
             }
         },
         "shop.tmx": {
@@ -49,10 +52,19 @@
     "map.tileWidth": 14,
     "map.width": 60,
     "openFiles": [
+        "gfx.tsx",
+        "shop.tmx",
+        "jail.tmx",
+        "town.tmx",
+        "ramirrors.tmx"
     ],
     "project": "gbjam14.tiled-project",
     "properties.customExpanded": true,
     "recentFiles": [
+        "gfx.tsx",
+        "shop.tmx",
+        "jail.tmx",
+        "town.tmx",
         "ramirrors.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
