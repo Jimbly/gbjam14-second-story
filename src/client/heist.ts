@@ -38,7 +38,7 @@ import {
 } from 'glov/common/vmath';
 import { actionDown, actionEdge } from './binds';
 import { blend } from './blend';
-import { dialogLine, HERO, signWithName } from './dialog_data';
+import { HERO, signWithName } from './dialog_data';
 import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';
 import { DIALOG_VIEWPORT, game_height, game_width } from './globals';
 import {

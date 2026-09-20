@@ -3,6 +3,23 @@
 const local_storage = require('glov/client/local_storage');
 local_storage.setStoragePrefix('gbj14'); // Before requiring anything else that might load from this
 
+import { platformRegister } from 'glov/common/platform'; // eslint-disable-line import/order
+platformRegister('discord', {
+  devmode: 'off',
+  reload: true,
+  reload_updates: true,
+  random_creation_name: true,
+  exit: false,
+});
+
+platformRegister('itch', {
+  devmode: 'off',
+  reload: false,
+  reload_updates: false,
+  random_creation_name: true,
+  exit: false,
+});
+
 export const GOALS = {
   intro0: 'Enjoy peaceful retirement in a new town',
   intro1: 'Enjoy peaceful retirement in a new town',

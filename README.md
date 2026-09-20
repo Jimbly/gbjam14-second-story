@@ -2,7 +2,10 @@ GBJam14 - "Old Gold"
 ============================
 
 TODO
-* make Itch page
+* decrease angle for diagonals on touch
+* icon
+* screenshots
+* itch page header
 
 Pre-prelease
 * re-check seeds for all special houses
