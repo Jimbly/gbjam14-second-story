@@ -1,10 +1,7 @@
 GBJam14 - "Old Gold"
 ============================
 
-TODO
-* track high scores (goal -> low time -> money)?
-
-Pos-release
+Post-release
 * screenshots - gameplay gif at least for one; maybe thumbnail?
 
 Stretch

@@ -62,6 +62,7 @@ import { localStorageGet, localStorageGetJSON, localStorageSetJSON } from 'glov/
 import { markdownAuto } from 'glov/client/markdown';
 import { markdownSetColorStyle, markdownSetColorStyles } from 'glov/client/markdown_renderables';
 import { netInit } from 'glov/client/net';
+import { scoreAlloc, ScoreSystem } from 'glov/client/score';
 import { settingsGet } from 'glov/client/settings';
 import { shaderCreate } from 'glov/client/shaders';
 import { spot, SPOT_DEFAULT_BUTTON, SPOT_STATE_DOWN } from 'glov/client/spot';
@@ -122,6 +123,12 @@ Z.CONTROLS = 100002;
 const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
 const PICK_H = 60;
+
+type Score = {
+  goal: number;
+  money: number;
+};
+let score_system: ScoreSystem<Score>;
 
 let font: Font;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -270,6 +277,28 @@ function init(): void {
   });
 
   bindsInit();
+
+  const ENCODE_MONEY = 10000000;
+  score_system = scoreAlloc({
+    score_to_value: (score: Score): number => {
+      return score.money + score.goal * ENCODE_MONEY;
+    },
+    value_to_score: (value: number): Score => {
+      let money = value % ENCODE_MONEY;
+      value -= money;
+      return {
+        money,
+        goal: value / ENCODE_MONEY,
+      };
+    },
+    level_defs: 1,
+    score_key: 'GBJ14',
+    ls_key: 'gbj14',
+    asc: false,
+    rel: 8,
+    num_names: 3,
+    histogram: false,
+  });
 }
 
 let palette_lock = false;
@@ -927,6 +956,14 @@ function startTown(initial: boolean, jailbreak: number): void {
   // dialog('startheist');
 }
 
+export function setScore(): void {
+  let score: Score = {
+    money: player_state.money,
+    goal: GOAL_LIST.indexOf(player_state.goal),
+  };
+  score_system.setScore(0, score);
+}
+
 let last_heist_index = 0;
 export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | null, jailbreak: number): void {
   if (success && !loot) {
@@ -936,6 +973,7 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     if (new_goal) {
       player_state.goal = new_goal;
     }
+    setScore();
     playSound('bigvictory');
   } else {
     // sound played on UI action: playSound('failheist');

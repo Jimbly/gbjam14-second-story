@@ -51,6 +51,7 @@ import {
   queueTransitionDitherUpDown,
   queueTransitionPaletteCrunchUpDown,
   randInt,
+  setScore,
   setUICamera,
   startHeist,
   startUnlocking
@@ -1282,6 +1283,7 @@ function doEvent(event: MapEvent): void {
       let player_state = playerState();
       if (player_state.goal === 'intro0') {
         player_state.goal = 'intro1';
+        setScore();
         dialog('intro');
       } else if (cur_map === 'ramirrors') {
         if (player_state.goal === 'search3') {
@@ -1298,6 +1300,7 @@ function doEvent(event: MapEvent): void {
                           level.cells[12][3] = 'floor';
                           level.tiles[12][3] = 'floor-1';
                           player_state.goal = 'search3b';
+                          setScore();
                         })
                       )
                     )
@@ -1333,8 +1336,10 @@ function doEvent(event: MapEvent): void {
           dialog('mugged');
         });
         player_state.goal = 'mugged';
+        setScore();
       } else if (player_state.goal === 'find3b' && cur_map === 'ramirrors') {
         player_state.goal = 'find3c';
+        setScore();
         dialogPush({
           name: HERO,
           text: 'Oh boy, that\'s too many guards, even for me. I\'ll have to find a safe way past them.',

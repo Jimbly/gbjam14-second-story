@@ -22,7 +22,7 @@ import {
   dialogRegister,
 } from './dialog_system';
 import { initCutsceneMap, playerFloater } from './heist';
-import { GOAL_LIST, GoalID, playerState, saveGame, startHeist } from './main';
+import { GOAL_LIST, GoalID, playerState, saveGame, setScore, startHeist } from './main';
 import { titleInit } from './title';
 
 const INFORMANT = 'ALLEY DWELLER';
@@ -124,6 +124,7 @@ dialogRegister({
                   } else {
                     if (goal === 'find2b') {
                       playerState().goal = 'buytreat';
+                      setScore();
                     }
                     dialogPush({
                       name: HERO,
@@ -267,6 +268,7 @@ dialogRegister({
           } else {
             player_state.money -= cost;
             player_state.goal = GOAL_LIST[GOAL_LIST.indexOf(player_state.goal) + 1];
+            setScore();
             playerFloater('[c=3]PURCHASED![/c]');
           }
         }
@@ -299,6 +301,7 @@ dialogRegister({
     let player_state = playerState();
     if (player_state.goal === 'mugged') {
       player_state.goal = 'informant1';
+      setScore();
       dialogLine(HERO,
         'Hey, you see the mugging that happened here the other night?',
         dialogLine.bind(null, INFORMANT,
@@ -342,12 +345,14 @@ dialogRegister({
         ], function () {
           player_state.money -= 400;
           player_state.goal = 'search1';
+          setScore();
         })
       );
     } else if (player_state.goal === 'search1') {
       signWithName(INFORMANT, 'Foulmouth lives in the Slums.');
     } else if (player_state.goal === 'find2a') {
       player_state.goal = 'find2b';
+      setScore();
       dialogChain(HERO, [
         'I have learned the name of our elusive mugger!',
         'I confess I have been curious about that for some time. Though, not curious enough to leave my favorite spot right here and ask about it.',
@@ -379,6 +384,7 @@ dialogRegister({
       signWithName(INFORMANT, 'Strongfist\'s guard cats will absolutely LOVE that.');
     } else if (player_state.goal === 'find3a') {
       player_state.goal = 'find3b';
+      setScore();
       dialogChain(HERO, [
         'Greetings, my knowledgeable friend!',
         'I happy to be called at least one of those things.',
@@ -416,6 +422,7 @@ dialogRegister({
       signWithName(INFORMANT, 'Ramirrors Goldenhare? He has a summer palace on Old Money Row.');
     } else if (player_state.goal === 'find3c') {
       player_state.goal = 'buygift';
+      setScore();
       dialogChain(HERO, [
         'What do you know of Ramirrors Palace private security?',
         'No friendly banter, but right into the questions?',
