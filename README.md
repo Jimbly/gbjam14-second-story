@@ -11,3 +11,6 @@ Acknowledgements:
 * [Habbo8 Font](https://captaincoder.itch.io/limited-dc-jam-2025-assets)
 
 Start with: `npm start` (after running `npm i` once)
+
+TODO:
+* guard alert blink is on top of picking UI, should be under
