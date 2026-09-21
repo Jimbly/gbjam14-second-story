@@ -30,10 +30,7 @@ function AudioBufferF32(pcm_channels, rate) {
   let nch = pcm_channels.length;
   this.numberOfChannels = nch;
   this.sampleRate = rate;
-  this.length = Infinity;
-  for (let ii = 0; ii < nch; ++ii) {
-    this.length = min(this.length, pcm_channels[ii].length);
-  }
+  this.length = pcm_channels[0].length;
   this.duration = this.length / this.sampleRate;
 }
 AudioBufferF32.prototype.getChannelData = function (channel) {
