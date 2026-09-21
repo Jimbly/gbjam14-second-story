@@ -30,7 +30,10 @@ function AudioBufferF32(pcm_channels, rate) {
   let nch = pcm_channels.length;
   this.numberOfChannels = nch;
   this.sampleRate = rate;
-  this.length = pcm_channels[0].length;
+  this.length = Infinity;
+  for (let ii = 0; ii < nch; ++ii) {
+    this.length = min(this.length, pcm_channels[ii].length);
+  }
   this.duration = this.length / this.sampleRate;
 }
 AudioBufferF32.prototype.getChannelData = function (channel) {
@@ -209,6 +212,9 @@ module.exports = function (options) {
         let nch = channels.length;
         let sample_rate = decode_ret.sampleRate;
         let audio_buffer = new AudioBufferF32(channels, sample_rate);
+        if (!nch || !channels[0].length) {
+          return void done('Empty audio buffer');
+        }
 
         if (options.outputs.includes('ogg') && !ext_exists.ogg) {
           wrapBlob();
