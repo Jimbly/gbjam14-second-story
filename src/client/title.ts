@@ -1,3 +1,4 @@
+import { actionEdge } from 'glov/client/actions';
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import { DEBUG, setState } from 'glov/client/engine';
@@ -5,7 +6,6 @@ import { ALIGN } from 'glov/client/font';
 import { eatAllInput, mouseDownAnywhere } from 'glov/client/input';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
-import { actionEdge } from './actions';
 import { game_height, game_width } from './globals';
 import {
   canLoad,

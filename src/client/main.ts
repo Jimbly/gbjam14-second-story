@@ -42,6 +42,12 @@ export type GoalID = keyof typeof GOALS;
 export const GOAL_LIST = Object.keys(GOALS) as GoalID[];
 
 import assert from 'assert';
+import {
+  actionBindKB,
+  actionBindPad,
+  actionEdge,
+  actionTriggerEdge,
+} from 'glov/client/actions';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { platformParameterGet } from 'glov/client/client_config';
@@ -81,14 +87,6 @@ import {
 import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
 import { JSVec4, unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
-import {
-  actionBindKB,
-  actionBindPad,
-  actionEdge,
-  actionTopOfFrame,
-  actionTriggerEdge,
-} from './actions';
-import { bindsCheck } from './binds';
 import { blend } from './blend';
 import { HERO } from './dialog_data';
 import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
@@ -1330,9 +1328,6 @@ export function topOfFrame(is_title: boolean): void {
   drawRect(camera2d.x0Real(), game_height, camera2d.x1Real(), camera2d.y1Real(), Z.BORDERS, border_color);
   drawRect(camera2d.x0Real(), 0, 0, game_height, Z.BORDERS, border_color);
   drawRect(game_width, 0, camera2d.x1Real(), game_height, Z.BORDERS, border_color);
-
-  actionTopOfFrame();
-  bindsCheck();
 
   onScreenControls();
 }

@@ -1,9 +1,9 @@
+import { actionEdge } from 'glov/client/actions';
 import { cmd_parse } from 'glov/client/cmds';
 import { setState } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
 import { settingsGet, settingsRegister, settingsSet } from 'glov/client/settings';
 import { uiGetFont } from 'glov/client/ui';
-import { actionEdge } from './actions';
 import { game_height, game_width } from './globals';
 import {
   backToGame,

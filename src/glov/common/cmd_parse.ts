@@ -77,7 +77,7 @@ const TYPE_NAME = ['INTEGER', 'NUMBER', 'STRING'];
 export function defaultHandler(err?: string | null, resp?: unknown): void {
   if (err) {
     console.error(err, resp);
-  } else {
+  } else if (resp !== undefined) {
     console.info(resp);
   }
 }

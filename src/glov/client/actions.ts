@@ -1,8 +1,8 @@
 import assert from 'assert';
-import { cmd_parse } from 'glov/client/cmds';
-import { KEYS, PAD } from 'glov/client/input';
 import { CmdRespFunc } from 'glov/common/cmd_parse';
 import { bindKB, bindPad } from './binds';
+import { cmd_parse } from './cmds';
+import { KEYS, PAD } from './input';
 
 /*
 
@@ -93,9 +93,15 @@ function actionStartup(): void {
 }
 
 export function actionBindKB(key: keyof typeof KEYS, action_key: ActionKey): void {
+  if (!did_startup) {
+    actionStartup();
+  }
   bindKB(key, action_key, 'hold');
 }
 export function actionBindPad(pad: keyof typeof PAD, action_key: ActionKey): void {
+  if (!did_startup) {
+    actionStartup();
+  }
   bindPad(pad, action_key, 'hold');
 }
 

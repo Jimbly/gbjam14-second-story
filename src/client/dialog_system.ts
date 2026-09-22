@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { actionDown, actionEdge, ActionKey } from 'glov/client/actions';
 import {
   ALIGN,
   Font,
@@ -51,7 +52,6 @@ import {
   v2distSq,
   vec4,
 } from 'glov/common/vmath';
-import { actionDown, actionEdge, ActionKey } from './actions';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
 import { getPaletteFont } from './main';

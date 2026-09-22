@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { actionDown, actionEdge } from 'glov/client/actions';
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
@@ -36,7 +37,6 @@ import {
   v2sub,
   Vec4,
 } from 'glov/common/vmath';
-import { actionDown, actionEdge } from './actions';
 import { blend } from './blend';
 import { dialogLine, HERO, signWithName } from './dialog_data';
 import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';

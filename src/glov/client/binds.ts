@@ -1,6 +1,13 @@
-import { cmd_parse } from 'glov/client/cmds';
-import { keyDownEdge, KEYS, keyUpEdge, PAD, padButtonDownEdge, padButtonUpEdge } from 'glov/client/input';
 import { Rec } from 'glov/common/types';
+import { cmd_parse } from './cmds';
+import {
+  keyDownEdge,
+  KEYS,
+  keyUpEdge,
+  PAD,
+  padButtonDownEdge,
+  padButtonUpEdge,
+} from './input';
 
 export type ValidKey = keyof typeof KEYS;
 export type ValidPad = keyof typeof PAD;
