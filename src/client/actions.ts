@@ -21,11 +21,12 @@ actionRegister('myaction');
 const { max } = Math;
 
 export interface ActionRegistry {
-  'up': 0;
-  'left': 0;
-  'down': 0;
-  'right': 0;
-  'accept': 0;
+  up: 0;
+  left: 0;
+  down: 0;
+  right: 0;
+  accept: 0;
+  cancel: 0;
 }
 
 export type ActionKey = keyof ActionRegistry;
@@ -63,7 +64,12 @@ function actionCmd(action_key: ActionKey, value: string, resp_func: CmdRespFunc)
   resp_func();
 }
 
+let did_startup = false;
 export function actionRegister(action_key: ActionKey): void {
+  if (!did_startup) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    actionStartup();
+  }
   assert(!action_state[action_key]);
   action_state[action_key] = {
     down: 0,
@@ -74,6 +80,16 @@ export function actionRegister(action_key: ActionKey): void {
     help: `Bindable Action: ${action_key}`,
     func: actionCmd.bind(null, action_key),
   });
+}
+
+function actionStartup(): void {
+  did_startup = true;
+  actionRegister('up');
+  actionRegister('left');
+  actionRegister('down');
+  actionRegister('right');
+  actionRegister('accept');
+  actionRegister('cancel');
 }
 
 export function actionBindKB(key: keyof typeof KEYS, action_key: ActionKey): void {

@@ -85,7 +85,6 @@ import {
   actionBindKB,
   actionBindPad,
   actionEdge,
-  actionRegister,
   actionTopOfFrame,
   actionTriggerEdge,
 } from './actions';
@@ -257,21 +256,9 @@ const font_style_hero_bold = fontStyle(null, {
   outline_width: 2.5,
 });
 
-declare module './actions' {
-  interface ActionRegistry {
-    cancel: 0;
-  }
-}
-
 function actionsInit(): void { // GBJAM
-  actionRegister('up');
-  actionRegister('left');
-  actionRegister('down');
-  actionRegister('right');
   // actionRegister('select');
   // actionRegister('start');
-  actionRegister('accept');
-  actionRegister('cancel');
   actionBindKB('UP', 'up');
   actionBindKB('W', 'up');
   actionBindKB('LEFT', 'left');
