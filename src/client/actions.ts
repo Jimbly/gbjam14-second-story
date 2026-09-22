@@ -4,10 +4,31 @@ import { KEYS, PAD } from 'glov/client/input';
 import { CmdRespFunc } from 'glov/common/cmd_parse';
 import { bindKB, bindPad } from './binds';
 
+/*
+
+Callers can add custom actions with the following code:
+
+declare module 'glov/client/actions' {
+  interface ActionRegistry {
+    myaction: 0;
+  }
+}
+
+actionRegister('myaction');
+
+*/
+
 const { max } = Math;
 
-export type ActionKey = 'up' | 'left' | 'down' | 'right' |
-  /*'select' | 'start' |*/ 'accept' | 'cancel';
+export interface ActionRegistry {
+  'up': 0;
+  'left': 0;
+  'down': 0;
+  'right': 0;
+  'accept': 0;
+}
+
+export type ActionKey = keyof ActionRegistry;
 
 type ActionState = {
   down: number;
@@ -15,6 +36,8 @@ type ActionState = {
 };
 let action_state = {} as Record<ActionKey, ActionState>;
 
+// Can be called for external events trigger actions (e.g. on-screen controls),
+//   though e.g. cmd_parse.handle('myaction 0') also works
 export function actionTriggerEdge(action_key: ActionKey, is_down: boolean): void {
   let action = action_state[action_key];
   assert(action);

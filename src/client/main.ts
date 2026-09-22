@@ -257,6 +257,12 @@ const font_style_hero_bold = fontStyle(null, {
   outline_width: 2.5,
 });
 
+declare module './actions' {
+  interface ActionRegistry {
+    cancel: 0;
+  }
+}
+
 function actionsInit(): void { // GBJAM
   actionRegister('up');
   actionRegister('left');
