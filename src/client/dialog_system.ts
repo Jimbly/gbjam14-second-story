@@ -51,7 +51,7 @@ import {
   v2distSq,
   vec4,
 } from 'glov/common/vmath';
-import { actionDown, actionEdge, ActionKey } from './binds';
+import { actionDown, actionEdge, ActionKey } from './actions';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
 import { getPaletteFont } from './main';

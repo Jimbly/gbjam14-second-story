@@ -82,11 +82,14 @@ import { Rec, WithRequired } from 'glov/common/types';
 import { easeOut } from 'glov/common/util';
 import { JSVec4, unit_vec, v2length, v2sub, v4copy, vec2, Vec4, vec4 } from 'glov/common/vmath';
 import {
-  actionCheckBinds,
+  actionBindKB,
+  actionBindPad,
   actionEdge,
+  actionRegister,
+  actionTopOfFrame,
   actionTriggerEdge,
-  bindsInit,
-} from './binds';
+} from './actions';
+import { bindsCheck } from './binds';
 import { blend } from './blend';
 import { HERO } from './dialog_data';
 import { dialog, dialogMoveLocked, DialogParam, dialogReset, dialogRun, dialogStartup } from './dialog_system';
@@ -254,6 +257,72 @@ const font_style_hero_bold = fontStyle(null, {
   outline_width: 2.5,
 });
 
+function actionsInit(): void { // GBJAM
+  actionRegister('up');
+  actionRegister('left');
+  actionRegister('down');
+  actionRegister('right');
+  // actionRegister('select');
+  // actionRegister('start');
+  actionRegister('accept');
+  actionRegister('cancel');
+  actionBindKB('UP', 'up');
+  actionBindKB('W', 'up');
+  actionBindKB('LEFT', 'left');
+  actionBindKB('A', 'left');
+  actionBindKB('DOWN', 'down');
+  actionBindKB('S', 'down');
+  actionBindKB('RIGHT', 'right');
+  actionBindKB('D', 'right');
+  actionBindKB('Z', 'accept');
+  actionBindKB('X', 'cancel');
+  actionBindKB('C', 'accept');
+  actionBindKB('J', 'accept');
+  actionBindKB('K', 'cancel');
+  actionBindKB('L', 'accept');
+  actionBindKB('Q', 'cancel');
+  actionBindKB('E', 'accept');
+  actionBindKB('SPACE', 'accept');
+  actionBindKB('ESC', 'cancel');
+  actionBindKB('BACKSPACE', 'cancel');
+  // actionBindKB('BRACKET_LEFT', 'select');
+  // actionBindKB('BRACKET_RIGHT', 'start');
+  // actionBindKB('SHIFT', 'select');
+  // actionBindKB('BACKSLASH', 'cancel');
+  actionBindKB('ENTER', 'accept');
+
+  actionBindPad('SELECT', 'accept');
+  actionBindPad('CANCEL', 'cancel');
+  actionBindPad('X', 'accept');
+  actionBindPad('Y', 'cancel');
+  actionBindPad('LEFT_BUMPER', 'accept');
+  actionBindPad('RIGHT_BUMPER', 'accept');
+  actionBindPad('LEFT_TRIGGER', 'cancel');
+  actionBindPad('RIGHT_TRIGGER', 'cancel');
+  // actionBindPad('BACK', 'select');
+  // actionBindPad('START', 'start');
+  actionBindPad('BACK', 'cancel');
+  actionBindPad('START', 'cancel');
+  actionBindPad('LEFT_STICK', 'accept');
+  actionBindPad('RIGHT_STICK', 'accept');
+  actionBindPad('UP', 'up');
+  actionBindPad('DOWN', 'down');
+  actionBindPad('LEFT', 'left');
+  actionBindPad('RIGHT', 'right');
+  actionBindPad('ANALOG_UP', 'up');
+  actionBindPad('ANALOG_LEFT', 'left');
+  actionBindPad('ANALOG_DOWN', 'down');
+  actionBindPad('ANALOG_RIGHT', 'right');
+  actionBindPad('LSTICK_UP', 'up');
+  actionBindPad('LSTICK_LEFT', 'left');
+  actionBindPad('LSTICK_DOWN', 'down');
+  actionBindPad('LSTICK_RIGHT', 'right');
+  actionBindPad('RSTICK_UP', 'up');
+  actionBindPad('RSTICK_LEFT', 'left');
+  actionBindPad('RSTICK_DOWN', 'down');
+  actionBindPad('RSTICK_RIGHT', 'right');
+}
+
 let shader_dither_transition: Shader;
 let sprite_dither: Sprite;
 const dither_uvs = vec4(0, 0, game_width / 4, game_height / 4);
@@ -276,7 +345,7 @@ function init(): void {
     wrap_t: gl.REPEAT,
   });
 
-  bindsInit();
+  actionsInit();
 
   const ENCODE_MONEY = 10000000;
   score_system = scoreAlloc({
@@ -1269,7 +1338,8 @@ export function topOfFrame(is_title: boolean): void {
   drawRect(camera2d.x0Real(), 0, 0, game_height, Z.BORDERS, border_color);
   drawRect(game_width, 0, camera2d.x1Real(), game_height, Z.BORDERS, border_color);
 
-  actionCheckBinds();
+  actionTopOfFrame();
+  bindsCheck();
 
   onScreenControls();
 }

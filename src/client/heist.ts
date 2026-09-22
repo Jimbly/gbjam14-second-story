@@ -36,7 +36,7 @@ import {
   v2sub,
   Vec4,
 } from 'glov/common/vmath';
-import { actionDown, actionEdge } from './binds';
+import { actionDown, actionEdge } from './actions';
 import { blend } from './blend';
 import { dialogLine, HERO, signWithName } from './dialog_data';
 import { dialog, dialogExists, dialogMoveLocked, dialogPush, dialogRun } from './dialog_system';

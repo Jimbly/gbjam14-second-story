@@ -250,7 +250,7 @@ class CmdParse {
     return checkAccess(this.last_access, this.implied_access, access_list);
   }
 
-  handle(self: AccessContainer | undefined, str: string, resp_func: CmdRespFunc): boolean {
+  handle(self: AccessContainer | undefined, str: string, resp_func?: CmdRespFunc): boolean {
     resp_func = resp_func || this.default_handler;
     this.was_not_found = false;
     this.last_cmd_data = undefined;
