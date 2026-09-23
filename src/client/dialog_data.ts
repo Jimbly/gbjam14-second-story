@@ -387,7 +387,7 @@ dialogRegister({
       setScore();
       dialogChain(HERO, [
         'Greetings, my knowledgeable friend!',
-        'I happy to be called at least one of those things.',
+        'I am most pleased to be called at least one of those things.',
         'Do you know the name [c=0]Ramirrors Goldenhare[/c]?',
         'Well, I certainly do now!',
         'Only just now?',
