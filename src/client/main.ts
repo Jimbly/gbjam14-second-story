@@ -254,9 +254,7 @@ const font_style_hero_bold = fontStyle(null, {
   outline_width: 2.5,
 });
 
-function actionsInit(): void { // GBJAM
-  // actionRegister('select');
-  // actionRegister('start');
+function actionsInit(): void {
   actionBindKB('Z', 'accept');
   actionBindKB('X', 'cancel');
   actionBindKB('C', 'accept');
