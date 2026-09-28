@@ -257,14 +257,6 @@ const font_style_hero_bold = fontStyle(null, {
 function actionsInit(): void { // GBJAM
   // actionRegister('select');
   // actionRegister('start');
-  actionBindKB('UP', 'up');
-  actionBindKB('W', 'up');
-  actionBindKB('LEFT', 'left');
-  actionBindKB('A', 'left');
-  actionBindKB('DOWN', 'down');
-  actionBindKB('S', 'down');
-  actionBindKB('RIGHT', 'right');
-  actionBindKB('D', 'right');
   actionBindKB('Z', 'accept');
   actionBindKB('X', 'cancel');
   actionBindKB('C', 'accept');
@@ -273,45 +265,17 @@ function actionsInit(): void { // GBJAM
   actionBindKB('L', 'accept');
   actionBindKB('Q', 'cancel');
   actionBindKB('E', 'accept');
-  actionBindKB('SPACE', 'accept');
-  actionBindKB('ESC', 'cancel');
-  actionBindKB('BACKSPACE', 'cancel');
-  // actionBindKB('BRACKET_LEFT', 'select');
-  // actionBindKB('BRACKET_RIGHT', 'start');
-  // actionBindKB('SHIFT', 'select');
-  // actionBindKB('BACKSLASH', 'cancel');
-  actionBindKB('ENTER', 'accept');
 
-  actionBindPad('SELECT', 'accept');
-  actionBindPad('CANCEL', 'cancel');
   actionBindPad('X', 'accept');
   actionBindPad('Y', 'cancel');
   actionBindPad('LEFT_BUMPER', 'accept');
   actionBindPad('RIGHT_BUMPER', 'accept');
   actionBindPad('LEFT_TRIGGER', 'cancel');
   actionBindPad('RIGHT_TRIGGER', 'cancel');
-  // actionBindPad('BACK', 'select');
-  // actionBindPad('START', 'start');
   actionBindPad('BACK', 'cancel');
   actionBindPad('START', 'cancel');
   actionBindPad('LEFT_STICK', 'accept');
   actionBindPad('RIGHT_STICK', 'accept');
-  actionBindPad('UP', 'up');
-  actionBindPad('DOWN', 'down');
-  actionBindPad('LEFT', 'left');
-  actionBindPad('RIGHT', 'right');
-  actionBindPad('ANALOG_UP', 'up');
-  actionBindPad('ANALOG_LEFT', 'left');
-  actionBindPad('ANALOG_DOWN', 'down');
-  actionBindPad('ANALOG_RIGHT', 'right');
-  actionBindPad('LSTICK_UP', 'up');
-  actionBindPad('LSTICK_LEFT', 'left');
-  actionBindPad('LSTICK_DOWN', 'down');
-  actionBindPad('LSTICK_RIGHT', 'right');
-  actionBindPad('RSTICK_UP', 'up');
-  actionBindPad('RSTICK_LEFT', 'left');
-  actionBindPad('RSTICK_DOWN', 'down');
-  actionBindPad('RSTICK_RIGHT', 'right');
 }
 
 let shader_dither_transition: Shader;
@@ -1096,7 +1060,7 @@ let show_controls = true;
 function preTickCB(): void {
   let aspect = game_width / game_height;
   let screen_aspect = engine.width / engine.height;
-  show_controls = settingsGet('touch_controls') || inputTouchMode();
+  show_controls = Boolean(settingsGet('touch_controls') || inputTouchMode());
   if (!show_controls) {
     engine.setRenderDims(game_width, game_height);
   } else if (screen_aspect > aspect) {

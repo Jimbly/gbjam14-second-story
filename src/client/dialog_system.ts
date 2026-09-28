@@ -121,12 +121,12 @@ type DialogNameRenderCB = (dialog: WithRequired<DialogParam, 'name'>, panel: Pan
 let name_render_cb: DialogNameRenderCB | null = null;
 
 function ff(): boolean {
-  return keyDown(KEYS.SPACE) || keyDown(KEYS.ENTER) || keyDown(KEYS.ESC) ||
+  return Boolean(keyDown(KEYS.SPACE) || keyDown(KEYS.ENTER) || keyDown(KEYS.ESC) ||
     actionDown('accept') || actionDown('cancel') ||
     inputPadMode() && (
       padButtonDown(PAD.LEFT_TRIGGER) || padButtonDown(PAD.RIGHT_TRIGGER) ||
       padButtonDown(PAD.A) || padButtonDown(PAD.B)
-    ) || mouseDownAnywhere() || inputClick();
+    ) || mouseDownAnywhere() || inputClick());
 }
 
 export function dialogActive(): boolean {
