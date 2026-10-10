@@ -1359,6 +1359,7 @@ function doEvent(event: MapEvent): void {
         player_state.jailbreak = 0;
         level.tiles[2][4] = 'floor-1';
         playSound('pickup');
+        setScore();
       }
     } break;
     default:

@@ -35,7 +35,7 @@ const SCORE_COLUMNS = [
 ];
 
 function myScoreToRow(row: unknown[], score: Score): void {
-  row.push(score.goal === 15 ? '*' : `${(score.goal/15 * 100).toFixed(0)}%`,
+  row.push(score.goal >= 15 ? '*' : `${(score.goal/15 * 100).toFixed(0)}%`,
     score.money > 9999 ? `${(score.money/1000).toFixed(0)}K` :
     `${score.money}`);
 }

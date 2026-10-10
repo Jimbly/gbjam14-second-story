@@ -999,12 +999,12 @@ export function leaveHeist(success: boolean, loot: number, new_goal: GoalID | nu
     if (new_goal) {
       player_state.goal = new_goal;
     }
-    setScore();
     playSound('bigvictory');
   } else {
     // sound played on UI action: playSound('failheist');
   }
   player_state.money += loot;
+  setScore();
   player_state.jailbreak = jailbreak;
   startTown(false, jailbreak);
   if (loot) {
@@ -1401,6 +1401,7 @@ export function loadGame(): void {
   player_state.did_hint = data.did_hint || 0;
   player_state.mode = 'town';
   dialogReset();
+  setScore(); // because old games weren't saving their score at the right time
   engine.setState(statePlay);
   startTown(player_state.goal === 'intro0', player_state.jailbreak);
 }
@@ -1523,17 +1524,17 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
+    loadGame();
     if (0) {
-      loadGame();
+      hiScoresInit();
     }
-    hiScoresInit();
 
-    // engine.setState(statePlay);
+    engine.setState(statePlay);
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    // player_state.goal = 'find3b';
+    player_state.goal = 'outtahere';
     // initCutsceneMap('ramirrors');
-    // startHeist(4);
+    // startHeist(5);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

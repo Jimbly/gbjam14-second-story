@@ -498,6 +498,7 @@ dialogRegister({
       dialogLine(HERO, 'What a peaceful looking town, this will be great for my retirement.  I should take a look around.');
     } else if (goal === 'outtahere') {
       saveGame();
+      setScore();
       dialogPush({
         name: HERO,
         text: 'Okay, enough of this town, I guess to really retire I\'m going to have to start a goat farm in the country...',
