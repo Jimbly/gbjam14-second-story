@@ -1,11 +1,10 @@
 import assert from 'assert';
-import { actionDown, actionEdge, ActionKey } from 'glov/client/actions';
+import { actionDown, ActionKey } from 'glov/client/actions';
 import {
   ALIGN,
   Font,
   FontStyle,
   fontStyle,
-  fontStyleColored,
 } from 'glov/client/font';
 import {
   ANY,
@@ -17,7 +16,6 @@ import {
   KEYS,
   keyUpEdge,
   mouseDownAnywhere,
-  PAD,
   padButtonDown,
   padButtonUpEdge,
 } from 'glov/client/input';
@@ -30,10 +28,9 @@ import {
   MDASTNode,
   mdParse,
 } from 'glov/client/markdown_parse';
-import { spot, SPOT_DEFAULT_BUTTON } from 'glov/client/spot';
 import { Sprite } from 'glov/client/sprites';
 import {
-  buttonTextDraw,
+  buttonText,
   panel,
   PanelParam,
   playUISound,
@@ -54,7 +51,6 @@ import {
 } from 'glov/common/vmath';
 import { FONT_HEIGHT } from './globals';
 import { playerPos } from './heist';
-import { getPaletteFont } from './main';
 import { GameSoundID } from './sound_data';
 
 const { ceil, max, min, round } = Math;
@@ -121,7 +117,7 @@ type DialogNameRenderCB = (dialog: WithRequired<DialogParam, 'name'>, panel: Pan
 let name_render_cb: DialogNameRenderCB | null = null;
 
 function ff(): boolean {
-  return Boolean(actionDown('accept') || actionDown('cancel') || actionDown('move_mod') ||
+  return Boolean(actionDown('accept') || actionDown('cancel') ||
     mouseDownAnywhere() || inputClick());
 }
 
@@ -257,10 +253,6 @@ export function dialogRun(
   const HPAD = pad_lr; // default 4
   const BUTTON_HEAD = HPAD;
 
-  const palette_font = getPaletteFont();
-  const font_style0 = fontStyleColored(null, palette_font[0]);
-  const font_style2 = fontStyleColored(null, palette_font[2]);
-
   z = z || Z.DIALOG || Z.STATUS;
   if (!active_dialog) {
     seen_no_key_down = false;
@@ -292,7 +284,7 @@ export function dialogRun(
     }
   }
   active_state.counter += dt;
-  let { counter } = active_state;
+  let { buttons_vis, counter } = active_state;
   if (transient && !active_state.fade_time) {
     transient_dist = transient_dist || 1;
     if (v2distSq(active_state.player_pos, playerPos()) >= transient_dist * transient_dist) {
@@ -416,61 +408,38 @@ export function dialogRun(
       }
       yy += button_h + BUTTON_PAD;
     } else {
-      if (actionEdge('up')) {
-        active_state.selected = (active_state.selected - 1 + num_buttons) % num_buttons;
-        playUISound('rollover');
-      }
-      if (actionEdge('down')) {
-        active_state.selected = (active_state.selected + 1) % num_buttons;
-        playUISound('rollover');
-      }
       for (let ii = 0; ii < num_buttons; ++ii) {
         let button = buttons![ii];
-        // let hotkeys = [];
-        // if (ii < 10) {
-        //   hotkeys.push(KEYS['1'] + ii);
-        // }
+        let hotkeys = [];
+        if (ii < 10) {
+          hotkeys.push(KEYS['1'] + ii);
+        }
         // if (button.hotkeys) {
         //   hotkeys = hotkeys.concat(button.hotkeys);
         // }
-        let selected = active_state.selected === ii;
-        let button_rect = {
+        let hotactions: ActionKey[] = [];
+        if (button.hotactions) {
+          hotactions = hotactions.concat(button.hotactions);
+        }
+        if (num_buttons === 1) {
+          hotactions.push('accept', 'cancel');
+        }
+
+        if (buttonText({
+          auto_focus: ii === 0,
+          focus_steal: ii === 0 && (num_buttons === 1 || !buttons_vis) && inputPadMode(),
+          text: button.label,
           x: x + HPAD,
           w: button_w,
           h: button_h,
           y: yy,
-        };
-        buttonTextDraw({
-          ...button_rect,
-          text: button.label,
-          font_style_normal: font_style2,
-          font_style_focused: font_style0,
           z,
           align: button_align,
           markdown: true,
-        }, selected ? 'rollover' : 'regular', selected);
-        let go = false;
-        if (selected && actionEdge('accept')) {
-          playUISound(button.sound || 'button_click');
-          go = true;
-        }
-        if (inputTouchMode()) {
-          if (spot({
-            def: SPOT_DEFAULT_BUTTON,
-            ...button_rect,
-          }).ret) {
-            go = true;
-          }
-        }
-        if (button.hotactions) {
-          for (let jj = 0; jj < button.hotactions.length; ++jj) {
-            if (actionEdge(button.hotactions[jj])) {
-              playUISound(button.sound || 'button_click');
-              go = true;
-            }
-          }
-        }
-        if (go) {
+          hotactions,
+          hotkeys,
+          sound: button.sound,
+        })) {
           active_dialog = null;
           if (button.cb) {
             if (typeof button.cb === 'string') {
