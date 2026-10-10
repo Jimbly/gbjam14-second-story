@@ -110,7 +110,7 @@ import {
 import { tickMusic } from './music';
 import { optionsMenu } from './options';
 import { playSound, SOUND_DATA } from './sound_data';
-import { titleInit } from './title';
+import { hiScoresInit, titleInit } from './title';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { abs, atan2, ceil, max, min, floor, PI, pow, random, round, sin } = Math;
@@ -125,7 +125,7 @@ const ORIGIN_CENTER = vec2(0.5, 0.5);
 const PICK_W = 10;
 const PICK_H = 60;
 
-type Score = {
+export type Score = {
   goal: number;
   money: number;
 };
@@ -322,6 +322,9 @@ function init(): void {
     num_names: 3,
     histogram: false,
   });
+}
+export function scoreSystem(): ScoreSystem<Score> {
+  return score_system;
 }
 
 let palette_lock = false;
@@ -1490,7 +1493,7 @@ export function main(): void {
 
   engine.addPreTickFunc(preTickCB);
   v4copy(engine.border_clear_color, border_color);
-  setFontStyles(font_style2, font_style0);
+  setFontStyles(font_style2, font_style0, null, font_style1);
   spotSetPadMode(true);
   spotSetAutofocusNonPad(true);
 
@@ -1520,7 +1523,10 @@ export function main(): void {
     if (0) {
       optionsMenu('title');
     }
-    loadGame();
+    if (0) {
+      loadGame();
+    }
+    hiScoresInit();
 
     // engine.setState(statePlay);
     // player_state.num_picks = 5;

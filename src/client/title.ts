@@ -2,10 +2,12 @@ import { actionEdge } from 'glov/client/actions';
 import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animation';
 import { autoAtlas } from 'glov/client/autoatlas';
 import { DEBUG, setState } from 'glov/client/engine';
-import { ALIGN } from 'glov/client/font';
-import { eatAllInput, inputClick, mouseDownAnywhere, mouseOver } from 'glov/client/input';
+import { ALIGN, fontStyle, fontStyleColored } from 'glov/client/font';
+import { eatAllInput, mouseDownAnywhere } from 'glov/client/input';
+import { scoresDraw } from 'glov/client/score_ui';
+import { spot, SPOT_DEFAULT_BUTTON, SPOT_NAV_DOWN, SPOT_NAV_UP, SpotCustomNav } from 'glov/client/spot';
 import { active as transitionActive } from 'glov/client/transition';
-import { drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { buttonText, drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { game_height, game_width } from './globals';
 import {
   canLoad,
@@ -15,13 +17,99 @@ import {
   newGameInit,
   queueTransitionDither,
   queueTransitionPaletteCrunchUpDown,
+  Score,
+  scoreSystem,
   topOfFrame,
 } from './main';
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
-import { spot, SPOT_DEFAULT_BUTTON, SPOT_NAV_DOWN, SPOT_NAV_UP, SpotCustomNav } from 'glov/client/spot';
 
 const { floor } = Math;
+
+const SCORE_COLUMNS = [
+  // widths are just proportional, scaled relative to `width` passed in
+  { name: '', width: 4, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: 'Name', width: 16, align: ALIGN.HFIT | ALIGN.VCENTER },
+  { name: 'Win', width: 5 },
+  { name: 'Gold', width: 8 },
+];
+
+function myScoreToRow(row: unknown[], score: Score): void {
+  row.push(score.goal === 15 ? '*' : `${(score.goal/15 * 100).toFixed(0)}%`,
+    score.money > 9999 ? `${(score.money/1000).toFixed(0)}K` :
+    `${score.money}`);
+}
+
+function stateScores(dt: number): void {
+  topOfFrame(true);
+  // let black = palette[PAL_BLACK];
+  // gl.clearColor(black[0], black[1], black[2], 1);
+  let palette_font = getPaletteFont();
+  let palette = getPalette();
+  const style_score = fontStyleColored(null, palette_font[2]);
+  const style_me = fontStyleColored(null, palette_font[1]);
+  const style_header = fontStyleColored(null, palette_font[2]);
+  const style_title = fontStyle(null, {
+    color: palette_font[0],
+    outline_color: palette_font[3],
+    outline_width: 2.5,
+  });
+
+  drawRect(0, 0, game_width, game_height, 1, palette[1]);
+
+  let x = 0;
+  let y = 2;
+  const CHW = 8;
+  const CHH = 9;
+  let font = uiGetFont();
+
+  font.draw({
+    style: style_title,
+    x: 0,
+    y,
+    w: game_width,
+    text: 'HIGH SCORES',
+    size: CHH,
+    align: ALIGN.HCENTER,
+  });
+  y += CHH + 2;
+
+  let w = game_width;
+  let text_height = uiTextHeight();
+  scoresDraw<Score>({
+    score_system: scoreSystem(),
+    allow_rename: true,
+    x,
+    width: w,
+    y,
+    height: game_height - y + 8,
+    z: Z.UI,
+    size: text_height,
+    line_height: text_height + 1,
+    level_index: 0,
+    columns: SCORE_COLUMNS,
+    scoreToRow: myScoreToRow,
+    style_score,
+    style_me,
+    style_header,
+    color_line: palette[3],
+    color_me_background: palette[0],
+    rename_button_size: 6,
+    rename_button_offset: -2/text_height,
+  });
+
+  if (buttonText({
+    x: 1,
+    y: 1,
+    w: CHW * 4,
+    text: 'Back',
+    hotaction: 'cancel',
+  })) {
+    queueTransitionPaletteCrunchUpDown();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    setState(stateTitle);
+  }
+}
 
 let title_anim: AnimationSequencer | null = null;
 let title_alpha = {
@@ -135,7 +223,7 @@ function stateTitle(dt: number): void {
       alpha: title_alpha.button,
     };
 
-    let num_buttons = canLoad() ? 3 : 2;
+    let num_buttons = canLoad() ? 4 : 3;
 
     y = game_height / 2 - 4;
 
@@ -146,20 +234,20 @@ function stateTitle(dt: number): void {
         h: button_h,
       };
       let custom_nav: SpotCustomNav | null = null;
-      if (selidx === 2 || selidx === 0 && num_buttons === 2) {
+      if (selidx === 3 || selidx === 0 && num_buttons === 3) {
         custom_nav = {
-          [SPOT_NAV_UP]: 'button1'
+          [SPOT_NAV_UP]: 'button2'
         };
-      } else if (selidx === 1) {
+      } else if (selidx === 2) {
         custom_nav = {
-          [SPOT_NAV_DOWN]: num_buttons === 3 ? 'button2' : 'button0'
+          [SPOT_NAV_DOWN]: num_buttons === 4 ? 'button3' : 'button0'
         };
       }
 
       let spot_ret = spot({
         ...rect,
         key: `button${selidx}`,
-        auto_focus: num_buttons === 3 ? selidx === 2 : selidx === 0,
+        auto_focus: num_buttons === 4 ? selidx === 3 : selidx === 0,
         def: SPOT_DEFAULT_BUTTON,
         custom_nav,
       });
@@ -174,10 +262,10 @@ function stateTitle(dt: number): void {
     font.draw({
       ...button_param,
       y,
-      color: palette_font[canLoad() ? selection === 2 ? 3 : 2 : 1],
+      color: palette_font[canLoad() ? selection === 3 ? 3 : 2 : 0],
       text: 'CONTINUE',
     });
-    if (selection === 2) {
+    if (selection === 3) {
       font.draw({
         ...button_param,
         align: ALIGN.HLEFT,
@@ -186,7 +274,7 @@ function stateTitle(dt: number): void {
         text: '▶',
       });
     }
-    if (click(2)) {
+    if (click(3)) {
       playSound('button_click');
       queueTransitionPaletteCrunchUpDown(500);
       loadGame();
@@ -236,10 +324,36 @@ function stateTitle(dt: number): void {
       optionsMenu('title');
     }
     y += button_h + 2;
+
+    font.draw({
+      ...button_param,
+      color: palette_font[selection === 2 ? 3 : 2],
+      y,
+      text: 'HI SCORES',
+    });
+    if (selection === 2) {
+      font.draw({
+        ...button_param,
+        align: ALIGN.HLEFT,
+        y,
+        color: palette_font[3],
+        text: '▶',
+      });
+    }
+    if (click(2)) {
+      playSound('button_click');
+      queueTransitionPaletteCrunchUpDown(500);
+      setState(stateScores);
+    }
+    y += button_h + 2;
   }
 }
 
 export function titleInit(): void {
   stateTitleInit();
   setState(stateTitle);
+}
+
+export function hiScoresInit(): void {
+  setState(stateScores);
 }
