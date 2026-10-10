@@ -259,10 +259,11 @@ function stateTitle(dt: number): void {
       return Boolean(spot_ret.ret);
     }
 
+    let disabled = !canLoad();
     font.draw({
       ...button_param,
       y,
-      color: palette_font[canLoad() ? selection === 3 ? 3 : 2 : 0],
+      color: palette_font[!disabled ? selection === 3 ? 3 : 2 : 0],
       text: 'CONTINUE',
     });
     if (selection === 3) {
@@ -274,7 +275,7 @@ function stateTitle(dt: number): void {
         text: '▶',
       });
     }
-    if (click(3)) {
+    if (!disabled && click(3)) {
       playSound('button_click');
       queueTransitionPaletteCrunchUpDown(500);
       loadGame();
