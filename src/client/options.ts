@@ -3,6 +3,7 @@ import { cmd_parse } from 'glov/client/cmds';
 import { setState } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
 import { settingsGet, settingsRegister, settingsSet } from 'glov/client/settings';
+import { spot, SPOT_DEFAULT_BUTTON, SPOT_NAV_DOWN, SPOT_NAV_UP, SpotCustomNav } from 'glov/client/spot';
 import { uiGetFont } from 'glov/client/ui';
 import { game_height, game_width } from './globals';
 import {
@@ -46,14 +47,14 @@ function stateOptionsMenu(dt: number): void {
   let W = game_width;
 
   let num_buttons = options_from === 'title' ? 5 : 6;
-  if (actionEdge('up')) {
-    selection = (selection - 1 + num_buttons) % num_buttons;
-    playSound('rollover');
-  }
-  if (actionEdge('down')) {
-    selection = (selection + 1) % num_buttons;
-    playSound('rollover');
-  }
+  // if (actionEdge('up')) {
+  //   selection = (selection - 1 + num_buttons) % num_buttons;
+  //   playSound('rollover');
+  // }
+  // if (actionEdge('down')) {
+  //   selection = (selection + 1) % num_buttons;
+  //   playSound('rollover');
+  // }
 
   let y = options_from === 'title' ? floor(game_height / 4) :
     game_height / 2;
@@ -90,6 +91,36 @@ function stateOptionsMenu(dt: number): void {
       text: '▶',
     });
   }
+  function click(): boolean {
+    let rect = {
+      x: 20, w: game_width - 40,
+      y,
+      h: button_h,
+    };
+    let custom_nav: SpotCustomNav | null = null;
+    if (selidx === 0) {
+      custom_nav = {
+        [SPOT_NAV_UP]: `button${num_buttons - 1}`
+      };
+    } else if (selidx === num_buttons - 1) {
+      custom_nav = {
+        [SPOT_NAV_DOWN]: 'button0'
+      };
+    }
+    let spot_ret = spot({
+      ...rect,
+      key: `button${selidx}`,
+      auto_focus: selidx === 0,
+      def: SPOT_DEFAULT_BUTTON,
+      custom_nav,
+    });
+    if (spot_ret.focused) {
+      selection = selidx;
+    } else if (selection === selidx) {
+      selection = -1;
+    }
+    return Boolean(spot_ret.ret);
+  }
 
   font.draw({
     ...button_param,
@@ -99,10 +130,6 @@ function stateOptionsMenu(dt: number): void {
   });
   indicator();
   if (selection === selidx) {
-    if (actionEdge('accept')) {
-      settingsSet('volume_sound', (round(settingsGet('volume_sound') * 10 + 1) % 11) / 10);
-      playSound('button_click');
-    }
     if (actionEdge('right')) {
       settingsSet('volume_sound', min(1, settingsGet('volume_sound') + 0.1));
       playSound('button_click');
@@ -111,6 +138,10 @@ function stateOptionsMenu(dt: number): void {
       settingsSet('volume_sound', min(1, settingsGet('volume_sound') - 0.1));
       playSound('button_click');
     }
+  }
+  if (click()) {
+    settingsSet('volume_sound', (round(settingsGet('volume_sound') * 10 + 1) % 11) / 10);
+    playSound('button_click');
   }
   ++selidx;
   y += button_h + 2;
@@ -123,10 +154,6 @@ function stateOptionsMenu(dt: number): void {
   });
   indicator();
   if (selection === selidx) {
-    if (actionEdge('accept')) {
-      settingsSet('volume_music', (round(settingsGet('volume_music') * 10 + 1) % 11) / 10);
-      playSound('button_click');
-    }
     if (actionEdge('right')) {
       settingsSet('volume_music', min(1, settingsGet('volume_music') + 0.1));
       playSound('button_click');
@@ -135,6 +162,10 @@ function stateOptionsMenu(dt: number): void {
       settingsSet('volume_music', min(1, settingsGet('volume_music') - 0.1));
       playSound('button_click');
     }
+  }
+  if (click()) {
+    settingsSet('volume_music', (round(settingsGet('volume_music') * 10 + 1) % 11) / 10);
+    playSound('button_click');
   }
   ++selidx;
   y += button_h + 2;
@@ -146,11 +177,9 @@ function stateOptionsMenu(dt: number): void {
     text: `PALETTE: ${settingsGet('palette') ? 'CLASSIC' : 'COLOR'}`,
   });
   indicator();
-  if (selection === selidx) {
-    if (actionEdge('accept') || actionEdge('left') || actionEdge('right')) {
-      settingsSet('palette', 1 - settingsGet('palette'));
-      playSound('button_click');
-    }
+  if (selection === selidx && (actionEdge('accept') || actionEdge('left') || actionEdge('right')) || click()) {
+    settingsSet('palette', 1 - settingsGet('palette'));
+    playSound('button_click');
   }
   ++selidx;
   y += button_h + 2;
@@ -162,11 +191,9 @@ function stateOptionsMenu(dt: number): void {
     text: `TOUCH: ${settingsGet('touch_controls') ? 'ON' : 'AUTO'}`,
   });
   indicator();
-  if (selection === selidx) {
-    if (actionEdge('accept') || actionEdge('left') || actionEdge('right')) {
-      settingsSet('touch_controls', 1 - settingsGet('touch_controls'));
-      playSound('button_click');
-    }
+  if (selection === selidx && (actionEdge('accept') || actionEdge('left') || actionEdge('right')) || click()) {
+    settingsSet('touch_controls', 1 - settingsGet('touch_controls'));
+    playSound('button_click');
   }
   ++selidx;
   y += button_h + 2;
@@ -179,7 +206,7 @@ function stateOptionsMenu(dt: number): void {
       text: 'BACK',
     });
     indicator();
-    if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
+    if (actionEdge('cancel') || click()) {
       playSound('button_click');
       queueTransitionPaletteCrunchUpDown();
       titleInit();
@@ -194,13 +221,11 @@ function stateOptionsMenu(dt: number): void {
       text: 'SAVE AND EXIT',
     });
     indicator();
-    if (selection === selidx) {
-      if (actionEdge('accept')) {
-        playSound('button_click');
-        queueTransitionPaletteCrunchUpDown(500);
-        saveGame();
-        titleInit();
-      }
+    if (click()) {
+      playSound('button_click');
+      queueTransitionPaletteCrunchUpDown(500);
+      saveGame();
+      titleInit();
     }
     ++selidx;
     y += button_h + 2;
@@ -212,7 +237,7 @@ function stateOptionsMenu(dt: number): void {
       text: 'BACK TO GAME',
     });
     indicator();
-    if (selection === selidx && actionEdge('accept') || actionEdge('cancel')) {
+    if (actionEdge('cancel') || click()) {
       playSound('button_click');
       queueTransitionPaletteCrunchUpDown();
       backToGame();

@@ -28,6 +28,7 @@ import {
   MDASTNode,
   mdParse,
 } from 'glov/client/markdown_parse';
+import { spotSetPadMode } from 'glov/client/spot';
 import { Sprite } from 'glov/client/sprites';
 import {
   buttonText,
@@ -252,7 +253,6 @@ export function dialogRun(
   let { x, y, w, h, z, pad_top, pad_bottom, pad_bottom_with_buttons, pad_lr, pad_image } = viewport;
   const HPAD = pad_lr; // default 4
   const BUTTON_HEAD = HPAD;
-
   z = z || Z.DIALOG || Z.STATUS;
   if (!active_dialog) {
     seen_no_key_down = false;
@@ -495,6 +495,7 @@ export function dialogRun(
 }
 
 export function dialogPush(param: DialogParam): void {
+  spotSetPadMode(true);
   active_dialog = param;
   active_state = new DialogState();
   if (param.instant) {

@@ -3,7 +3,7 @@ import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animat
 import { autoAtlas } from 'glov/client/autoatlas';
 import { DEBUG, setState } from 'glov/client/engine';
 import { ALIGN } from 'glov/client/font';
-import { eatAllInput, mouseDownAnywhere } from 'glov/client/input';
+import { eatAllInput, inputClick, mouseDownAnywhere, mouseOver } from 'glov/client/input';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawRect, uiGetFont, uiTextHeight } from 'glov/client/ui';
 import { game_height, game_width } from './globals';
@@ -19,6 +19,7 @@ import {
 } from './main';
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
+import { spot, SPOT_DEFAULT_BUTTON, SPOT_NAV_DOWN, SPOT_NAV_UP, SpotCustomNav } from 'glov/client/spot';
 
 const { floor } = Math;
 
@@ -135,16 +136,40 @@ function stateTitle(dt: number): void {
     };
 
     let num_buttons = canLoad() ? 3 : 2;
-    if (actionEdge('up')) {
-      selection = (selection - 1 + num_buttons) % num_buttons;
-      playSound('rollover');
-    }
-    if (actionEdge('down')) {
-      selection = (selection + 1) % num_buttons;
-      playSound('rollover');
-    }
 
     y = game_height / 2 - 4;
+
+    function click(selidx: number): boolean {
+      let rect = {
+        x: 20, w: game_width - 40,
+        y,
+        h: button_h,
+      };
+      let custom_nav: SpotCustomNav | null = null;
+      if (selidx === 2 || selidx === 0 && num_buttons === 2) {
+        custom_nav = {
+          [SPOT_NAV_UP]: 'button1'
+        };
+      } else if (selidx === 1) {
+        custom_nav = {
+          [SPOT_NAV_DOWN]: num_buttons === 3 ? 'button2' : 'button0'
+        };
+      }
+
+      let spot_ret = spot({
+        ...rect,
+        key: `button${selidx}`,
+        auto_focus: num_buttons === 3 ? selidx === 2 : selidx === 0,
+        def: SPOT_DEFAULT_BUTTON,
+        custom_nav,
+      });
+      if (spot_ret.focused) {
+        selection = selidx;
+      } else if (selection === selidx) {
+        selection = -1;
+      }
+      return Boolean(spot_ret.ret);
+    }
 
     font.draw({
       ...button_param,
@@ -160,11 +185,11 @@ function stateTitle(dt: number): void {
         color: palette_font[3],
         text: '▶',
       });
-      if (actionEdge('accept')) {
-        playSound('button_click');
-        queueTransitionPaletteCrunchUpDown(500);
-        loadGame();
-      }
+    }
+    if (click(2)) {
+      playSound('button_click');
+      queueTransitionPaletteCrunchUpDown(500);
+      loadGame();
     }
     y += button_h + 2;
 
@@ -182,11 +207,11 @@ function stateTitle(dt: number): void {
         color: palette_font[3],
         text: '▶',
       });
-      if (actionEdge('accept')) {
-        playSound('button_click');
-        queueTransitionPaletteCrunchUpDown(500);
-        newGameInit();
-      }
+    }
+    if (click(0)) {
+      playSound('button_click');
+      queueTransitionPaletteCrunchUpDown(500);
+      newGameInit();
     }
     y += button_h + 2;
 
@@ -204,11 +229,11 @@ function stateTitle(dt: number): void {
         color: palette_font[3],
         text: '▶',
       });
-      if (actionEdge('accept')) {
-        playSound('button_click');
-        queueTransitionPaletteCrunchUpDown(500);
-        optionsMenu('title');
-      }
+    }
+    if (click(1)) {
+      playSound('button_click');
+      queueTransitionPaletteCrunchUpDown(500);
+      optionsMenu('title');
     }
     y += button_h + 2;
   }

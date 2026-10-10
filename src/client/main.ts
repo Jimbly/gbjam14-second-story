@@ -71,7 +71,7 @@ import { netInit } from 'glov/client/net';
 import { scoreAlloc, ScoreSystem } from 'glov/client/score';
 import { settingsGet } from 'glov/client/settings';
 import { shaderCreate } from 'glov/client/shaders';
-import { spot, SPOT_DEFAULT_BUTTON, SPOT_STATE_DOWN, spotSetPadMode } from 'glov/client/spot';
+import { spot, SPOT_DEFAULT_BUTTON, SPOT_STATE_DOWN, spotSetAutofocusNonPad, spotSetPadMode } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import { Shader, Sprite, spriteCreate, spriteQueueRaw, spriteQueueRaw4, Texture } from 'glov/client/sprites';
 import { textureBlack } from 'glov/client/textures';
@@ -1492,6 +1492,7 @@ export function main(): void {
   v4copy(engine.border_clear_color, border_color);
   setFontStyles(font_style2, font_style0);
   spotSetPadMode(true);
+  spotSetAutofocusNonPad(true);
 
   init();
 
