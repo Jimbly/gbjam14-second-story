@@ -92,3 +92,18 @@ for (let ii = 0; ii < 12; ++ii) {
 export function qwertyKeyCodeFromEvent(event: KeyboardEvent): number {
   return QWERTY_KEY_CODES[event.code] || event.keyCode;
 }
+
+export function qwertyKeyCodeFromEventCode(event_code: string): number | undefined {
+  return QWERTY_KEY_CODES[event_code];
+}
+
+// Given a keyCode (e.g. 64 for the key next to shift / KEYS.A),
+// returns an event code e.g. 'KeyA'
+export function eventCodeFromKeyCode(code: number): string | null {
+  for (let key in QWERTY_KEY_CODES) {
+    if (QWERTY_KEY_CODES[key] === code) {
+      return key;
+    }
+  }
+  return null;
+}

@@ -16,7 +16,7 @@ import {
 } from './binds';
 import { platformGetID } from './client_config';
 import { cmd_parse } from './cmds';
-import { getFrameDtHr } from './engine';
+import { debugDefineIsSet, getFrameDtHr } from './engine';
 import {
   KEYS,
   MOD_CTRL,
@@ -55,7 +55,6 @@ export interface ActionRegistry {
   ok: 0;
   yes: 0;
   no: 0;
-  ok_low: 0; // low-priority OK, queried only after accept/cancel/yes/no etc, so can overlap
 }
 
 export type ActionKey = keyof ActionRegistry;
@@ -135,12 +134,13 @@ export function actionBindKB(key: keyof typeof KEYS, action_key: ActionKey, modi
     layer,
   });
 }
-export function actionBindPad(pad: keyof typeof PAD, action_key: ActionKey, layer?: string): void {
+export function actionBindPad(pad: keyof typeof PAD, action_key: ActionKey, modifiers?: number, layer?: string): void {
   assert(action_state[action_key], `Action "${action_key}" not yet registered`);
   bindPad({
     key: pad,
     cmd: action_key,
     action: 'action',
+    modifiers,
     layer,
   });
 }
@@ -209,21 +209,24 @@ function actionStartup(): void {
   actionRegister('accept', { prevent_down_trickle: true });
   actionRegister('cancel', { prevent_down_trickle: true });
   actionRegister('ok', { prevent_down_trickle: true });
-  actionRegister('ok_low', { prevent_down_trickle: true });
   actionRegister('yes', { prevent_down_trickle: true });
   actionRegister('no', { prevent_down_trickle: true });
 
   // basic nav set - active even when an edit box has keyboard focus
-  actionBindPad('UP', 'up', 'nav');
-  actionBindPad('DOWN', 'down', 'nav');
-  actionBindPad('LEFT', 'left', 'nav');
-  actionBindPad('RIGHT', 'right', 'nav');
-  actionBindPad('ANALOG_UP', 'up', 'nav');
-  actionBindPad('ANALOG_LEFT', 'left', 'nav');
-  actionBindPad('ANALOG_DOWN', 'down', 'nav');
-  actionBindPad('ANALOG_RIGHT', 'right', 'nav');
-  actionBindPad('LEFT_BUMPER', 'prev', 'nav');
-  actionBindPad('RIGHT_BUMPER', 'next', 'nav');
+  actionBindPad('UP', 'up', 0, 'nav');
+  actionBindPad('DOWN', 'down', 0, 'nav');
+  actionBindPad('LEFT', 'left', 0, 'nav');
+  actionBindPad('RIGHT', 'right', 0, 'nav');
+  actionBindPad('LSTICK_UP', 'up', 0, 'nav');
+  actionBindPad('LSTICK_LEFT', 'left', 0, 'nav');
+  actionBindPad('LSTICK_DOWN', 'down', 0, 'nav');
+  actionBindPad('LSTICK_RIGHT', 'right', 0, 'nav');
+  actionBindPad('RSTICK_UP', 'up', 0, 'nav');
+  actionBindPad('RSTICK_LEFT', 'left', 0, 'nav');
+  actionBindPad('RSTICK_DOWN', 'down', 0, 'nav');
+  actionBindPad('RSTICK_RIGHT', 'right', 0, 'nav');
+  actionBindPad('LEFT_BUMPER', 'prev', 0, 'nav');
+  actionBindPad('RIGHT_BUMPER', 'next', 0, 'nav');
   actionBindKB('TAB', 'next', 0, 'nav');
   actionBindKB('TAB', 'prev', MOD_SHIFT, 'nav');
   if (platformGetID() === 'electron') {
@@ -250,22 +253,40 @@ function actionStartup(): void {
   // general binds
   actionBindKB('SPACE', 'accept', 0, 'nav');
   actionBindKB('ENTER', 'accept', 0, 'nav');
-  actionBindPad('SELECT', 'accept', 'nav');
+  actionBindPad('A', 'accept', 0, 'nav');
 
   actionBindKB('ESC', 'cancel', 0, 'nav');
   actionBindKB('BACKSPACE', 'cancel', 0, 'nav');
-  actionBindPad('CANCEL', 'cancel', 'nav');
+  actionBindPad('B', 'cancel', 0, 'nav');
 
   // modal dialogs
   actionBindKB('O', 'ok', 0, 'nav');
   actionBindKB('Y', 'yes', 0, 'nav');
   actionBindKB('N', 'no', 0, 'nav');
-  actionBindKB('ESC', 'ok_low', 0, 'nav');
 
   // recommended extras:
   // actionBindKB('E', 'accept', 0, 'nav');
   // actionBindKB('Q', 'cancel', 0, 'nav');
-  // actionBindPad('X', 'accept', 'nav');
-  // actionBindPad('Y', 'cancel', 'nav');
-  // actionBindPad('BACK', 'cancel', 'nav');
+  // actionBindPad('X', 'accept', 0, 'nav');
+  // actionBindPad('Y', 'cancel', 0, 'nav');
+  // actionBindPad('BACK', 'cancel', 0, 'nav');
+
+  if (debugDefineIsSet('IJKL')) {
+    // convenient set for checking if any hardcoded arrows/wasd/enter/space/etc is used
+    actionBindKB('I', 'up', 0, 'navext');
+    actionBindKB('J', 'left', 0, 'navext');
+    actionBindKB('K', 'down', 0, 'navext');
+    actionBindKB('L', 'right', 0, 'navext');
+    actionBindKB('U', 'accept', 0, 'nav');
+    actionBindKB('O', 'cancel', 0, 'nav');
+  }
+  if (debugDefineIsSet('YGHJ')) {
+    // second set for checking if any hardcoded arrows/wasd/enter/space/etc is used
+    actionBindKB('Y', 'up', 0, 'navext');
+    actionBindKB('G', 'left', 0, 'navext');
+    actionBindKB('H', 'down', 0, 'navext');
+    actionBindKB('J', 'right', 0, 'navext');
+    actionBindKB('R', 'accept', 0, 'nav');
+    actionBindKB('F', 'cancel', 0, 'nav');
+  }
 }

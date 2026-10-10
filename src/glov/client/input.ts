@@ -8,14 +8,14 @@
 
 import assert from 'assert';
 
-const UP_EDGE = 0; // only for pads, which use === null as "up"
 const UP = 0; // only for key/mouse
 const DOWN = 1;
 const DOWN_EDGE = 2; // only for pads
+const UP_EDGE = 3; // only for pads
 
 // per-app overrideable options
 const TOUCH_AS_MOUSE = true;
-let map_analog_to_dpad = true;
+let map_analog_to_dpad = false; // default binds and actions should take care of this now
 
 let mouse_log = 0;
 
@@ -77,6 +77,8 @@ export let KEYS = {
   SHIFT: 16,
   CTRL: 17,
   ALT: 18,
+  PAUSE: 19,
+  CAPS_LOCK: 20,
   ESC: 27,
   ESCAPE: 27,
   SPACE: 32,
@@ -88,6 +90,7 @@ export let KEYS = {
   UP: 38,
   RIGHT: 39,
   DOWN: 40,
+  PRINT_SCREEN: 44,
   INS: 45,
   DEL: 46,
 
@@ -129,6 +132,10 @@ export let KEYS = {
   Y: 89,
   Z: 90,
 
+  META_LEFT: 91,
+  META_RIGHT: 92,
+  CONTEXT_MENU: 93,
+
   NUMPAD0: 96,
   NUMPAD1: 97,
   NUMPAD2: 98,
@@ -158,6 +165,8 @@ export let KEYS = {
   F11: 122,
   F12: 123,
 
+  NUM_LOCK: 144,
+  SCROLL_LOCK: 145,
   SEMICOLON: 186,
   EQUALS: 187,
   COMMA: 188,
@@ -183,6 +192,8 @@ if (typeof Proxy === 'function') {
     }
   });
 }
+const PAD_NUM_SIMPLE_BUTTONS = 17;
+const PAD_TOTAL_BUTTONS = 28;
 export const PAD = {
   A: 0,
   SELECT: 0, // GLOV name
@@ -190,14 +201,14 @@ export const PAD = {
   CANCEL: 1, // GLOV name
   X: 2,
   Y: 3,
-  LB: 4,
   LEFT_BUMPER: 4,
-  RB: 5,
+  LB: 4,
   RIGHT_BUMPER: 5,
-  LT: 6,
+  RB: 5,
   LEFT_TRIGGER: 6,
-  RT: 7,
+  LT: 6,
   RIGHT_TRIGGER: 7,
+  RT: 7,
   BACK: 8,
   START: 9,
   LEFT_STICK: 10,
@@ -206,14 +217,15 @@ export const PAD = {
   DOWN: 13,
   LEFT: 14,
   RIGHT: 15,
-  ANALOG_UP: 20,
-  ANALOG_LEFT: 21,
-  ANALOG_DOWN: 22,
-  ANALOG_RIGHT: 23,
+  CENTER: 16, // Guide / PS button
   LSTICK_UP: 20,
   LSTICK_LEFT: 21,
   LSTICK_DOWN: 22,
   LSTICK_RIGHT: 23,
+  ANALOG_UP: 20, // alias for left stick
+  ANALOG_LEFT: 21,
+  ANALOG_DOWN: 22,
+  ANALOG_RIGHT: 23,
   RSTICK_UP: 24,
   RSTICK_LEFT: 25,
   RSTICK_DOWN: 26,
@@ -228,6 +240,7 @@ export type ValidPadValue = typeof PAD[ValidPad];
 import {
   Rec,
   TSMap,
+  WithRequired,
 } from 'glov/common/types';
 import {
   v2add,
@@ -334,8 +347,39 @@ export function inputValidKeyName(key: string): key is ValidKey {
   return Boolean((KEYS_ORIG as TSMap<number>)[key]);
 }
 
+export function inputLookupKeyName(key_code: number): ValidKey | null {
+  let key: ValidKey;
+  for (key in KEYS_ORIG) {
+    if (KEYS_ORIG[key] === key_code) {
+      return key;
+    }
+  }
+  return null;
+}
+
+export function inputLookupPadName(pad_code: number): ValidPad | null {
+  let key: ValidPad;
+  for (key in PAD) {
+    if (PAD[key] === pad_code) {
+      return key;
+    }
+  }
+  return null;
+}
+
+const REDUNANT_NAMES = arrayToSet([
+  'SELECT', 'CANCEL', 'LB', 'RB', 'LT', 'RT',
+  'ANALOG_UP',
+  'ANALOG_LEFT',
+  'ANALOG_DOWN',
+  'ANALOG_RIGHT',
+]);
 export function inputValidPadName(key: string): key is ValidPad {
-  return Boolean((PAD as TSMap<number>)[key]);
+  if (REDUNANT_NAMES[key]) {
+    // redundant names not allowed in binds system
+    return false;
+  }
+  return Boolean(typeof (PAD as TSMap<number>)[key] === 'number');
 }
 
 let text_keys: Rec<number, true>;
@@ -642,6 +686,19 @@ function releaseAllKeysDown(evt: Event): void {
   }
 }
 
+function modFromEvent(event: OurKeyboardEvent): number {
+  return (event.shiftKey ? MOD_SHIFT : 0) |
+    (event.ctrlKey ? MOD_CTRL : 0) |
+    (event.altKey ? MOD_ALT : 0);
+}
+
+export type FrameKeyUp = {
+  code: number;
+  eventCode: string;
+  eventKey: string;
+  mod: number;
+};
+let frame_keyup: null | FrameKeyUp;
 function onKeyUp(event: OurKeyboardEvent): void {
   renderNeeded();
   protectUnload(event.ctrlKey);
@@ -666,7 +723,45 @@ function onKeyUp(event: OurKeyboardEvent): void {
     }
   }
 
+  frame_keyup = {
+    code,
+    eventCode: event.code,
+    eventKey: event.key,
+    mod: modFromEvent(event),
+  };
+
   inEventHandle('keyup', event);
+}
+
+export function inputFrameKeyUp(): null | FrameKeyUp {
+  return frame_keyup;
+}
+
+let keyboard_layout_map: Rec<number, string> = localStorageGetJSON('layout_map', {});
+function updateLayoutMap(code: number, name: string): void {
+  name = name.toLowerCase();
+  if (keyboard_layout_map[code] !== name) {
+    keyboard_layout_map[code] = name;
+    localStorageSetJSON('layout_map', keyboard_layout_map);
+  }
+}
+
+// Only known/correct if it's been pushed
+// This is used as a fallback to `keyboard.getLayoutMap` which does not exist on Firefox
+export function inputKeyName(code: number): string | undefined {
+  return keyboard_layout_map[code];
+}
+
+// Only known/correct if it's been pushed
+// This is used as a fallback to `keyboard.getLayoutMap` which does not exist on Firefox
+export function inputKeyInverseMapped(letter: string): number | undefined {
+  letter = letter.toLowerCase();
+  for (let key_code in keyboard_layout_map) {
+    let v = keyboard_layout_map[key_code]!;
+    if (v === letter) {
+      return Number(key_code);
+    }
+  }
 }
 
 function onKeyDown(event: OurKeyboardEvent): void {
@@ -683,7 +778,10 @@ function onKeyDown(event: OurKeyboardEvent): void {
     event.stopPropagation();
     event.preventDefault();
   }
-  // console.log(`${event.code} ${event.keyCode}`);
+  // console.log(`${event.code} ${event.keyCode} ${event.key}`);
+  if (typeof event.key === 'string') {
+    updateLayoutMap(code, event.key);
+  }
   onUserInput();
 
   // Letting through to our code regardless of no_stop, because we handle things like ESC in INPUT elements
@@ -694,9 +792,7 @@ function onKeyDown(event: OurKeyboardEvent): void {
   if (ks.state !== DOWN) { // not a repeat event
     ++ks.down_edge;
     ks.state = DOWN;
-    ks.down_mod = (event.shiftKey ? MOD_SHIFT : 0) |
-      (event.ctrlKey ? MOD_CTRL : 0) |
-      (event.altKey ? MOD_ALT : 0);
+    ks.down_mod = modFromEvent(event);
     ks.origin_time = eventTimestamp(event);
     // ks.down_start = ks.origin_time;
 
@@ -1054,6 +1150,13 @@ function genAnalogMap(): void {
     ANALOG_MAP[PAD.UP] = [PAD.LSTICK_UP, PAD.RSTICK_UP];
     ANALOG_MAP[PAD.DOWN] = [PAD.LSTICK_DOWN, PAD.RSTICK_DOWN];
   }
+  // Not for analog, but use this to allow ANY as a pad button parameter
+  let any_arr = [];
+  let key: ValidPad;
+  for (key in PAD) {
+    any_arr.push(PAD[key]);
+  }
+  ANALOG_MAP[ANY] = any_arr;
 }
 
 let passive_param: false | { passive: false } = false;
@@ -1124,14 +1227,20 @@ function inputStartup(_canvas: HTMLCanvasElement, params: InputStartupParams): v
 const DEADZONE = 0.26;
 const DEADZONE_SQ = DEADZONE * DEADZONE;
 const NUM_STICKS = 2;
-const PAD_THRESHOLD = 0.35; // for turning analog motion into digital events
+const PAD_THRESHOLD = 0.5; // for turning analog motion into digital events
 
 type GamepadData = {
+  name: string;
   id: number;
   timestamp: number;
   sticks: Vec2[];
+  button_mask: number; // bitmask state of simple buttons as of last querying
 };
-type PadState = Rec<number, number>;
+type PadStateEntry = {
+  value: number;
+  down_mod: number;
+};
+type PadState = PadStateEntry[];
 let pad_states: PadState[] = []; // One map per gamepad to pad button states
 let gamepad_data: GamepadData[] = []; // Other tracking data per gamepad
 
@@ -1139,21 +1248,40 @@ function getGamepadData(idx: number): GamepadData {
   let gpd = gamepad_data[idx];
   if (!gpd) {
     gpd = gamepad_data[idx] = {
+      name: 'unknown',
       id: idx,
       timestamp: 0,
       sticks: new Array(NUM_STICKS),
+      button_mask: 0,
     };
     for (let ii = 0; ii < NUM_STICKS; ++ii) {
       gpd.sticks[ii] = vec2();
     }
-    pad_states[idx] = {};
+    pad_states[idx] = [];
+    for (let ii = 0; ii < PAD_TOTAL_BUTTONS; ++ii) {
+      pad_states[idx].push({
+        value: 0,
+        down_mod: 0,
+      });
+    }
   }
   return gpd;
 }
 
+export type FramePadUp = {
+  code: number;
+  mod: number;
+};
+let frame_padup: null | FramePadUp;
+export function inputFramePadUp(): null | FramePadUp {
+  return frame_padup;
+}
+
 function updatePadState(gpd: GamepadData, ps: PadState, is_down: boolean, padcode: number): void {
-  if (is_down && !ps[padcode]) {
-    ps[padcode] = DOWN_EDGE;
+  let pse = ps[padcode];
+  if (is_down && !pse.value) {
+    pse.value = DOWN_EDGE;
+    pse.down_mod = gpd.button_mask & ~(1<<padcode);
     onUserInput();
     if (touch_mode) {
       localStorageSetJSON('touch_mode', false);
@@ -1173,8 +1301,12 @@ function updatePadState(gpd: GamepadData, ps: PadState, is_down: boolean, padcod
       }
       touches[touch_id].down(null, true);
     }
-  } else if (!is_down && ps[padcode]) {
-    ps[padcode] = UP_EDGE;
+  } else if (!is_down && pse.value) {
+    frame_padup = {
+      code: padcode,
+      mod: pse.down_mod,
+    };
+    pse.value = UP_EDGE;
     if (padcode === pad_to_touch) {
       let touch_id = `g${gpd.id}`;
       let touch_data = touches[touch_id];
@@ -1192,6 +1324,7 @@ function updatePadState(gpd: GamepadData, ps: PadState, is_down: boolean, padcod
 type GetGamepadsFn = () => GetGamepadsRet;
 type GamepadQueryButtonData = number | { value: number };
 type GamepadQueryData = {
+  id: string;
   timestamp: number;
   buttons: GamepadQueryButtonData[];
   axes: number[];
@@ -1203,6 +1336,10 @@ type NavigatorFallback = {
   getGamepads?: GetGamepadsFn;
   webkitGetGamepads?: GetGamepadsFn;
 };
+export function padName(padindex?: number): string {
+  padindex = padindex || 0;
+  return gamepad_data[padindex]?.name || 'unknown';
+}
 function gamepadUpdate(): void {
   let gamepads;
   try {
@@ -1223,20 +1360,30 @@ function gamepadUpdate(): void {
         continue;
       }
       let gpd = getGamepadData(ii);
+      gpd.name = gamepad.id || 'unknown';
       let ps = pad_states[ii];
       // Update button states
       if (gpd.timestamp < gamepad.timestamp) {
         let buttons = gamepad.buttons;
         gpd.timestamp = gamepad.timestamp;
 
-        let numButtons = buttons.length;
-        for (let n = 0; n < numButtons; n++) {
+        let button_states = [];
+        let button_mask = 0;
+        let num_buttons = min(buttons.length, PAD_NUM_SIMPLE_BUTTONS);
+        for (let n = 0; n < num_buttons; n++) {
           let value = buttons[n];
           if (typeof value === 'object') {
             value = value.value;
           }
           let is_down = value > 0.5;
-          updatePadState(gpd, ps, is_down, n);
+          button_states.push(is_down);
+          if (is_down) {
+            button_mask |= 1 << n;
+          }
+        }
+        gpd.button_mask = button_mask;
+        for (let n = 0; n < num_buttons; ++n) {
+          updatePadState(gpd, ps, button_states[n], n);
         }
       }
 
@@ -1344,18 +1491,15 @@ function inputTick(): void {
   no_active_touches = empty(touches);
 }
 
-function endFrameTickMap(map: TSMap<number>): void {
-  Object.keys(map).forEach((keycode) => {
-    switch (map[keycode]) {
-      case DOWN_EDGE:
-        map[keycode] = DOWN;
-        break;
-      case UP_EDGE:
-        delete map[keycode];
-        break;
-      default:
+function endFrameTickMap(ps: PadState): void {
+  for (let ii = 0; ii < ps.length; ++ii) {
+    let pse = ps[ii];
+    if (pse.value === DOWN_EDGE) {
+      pse.value = DOWN;
+    } else if (pse.value === UP_EDGE) {
+      pse.value = 0;
     }
-  });
+  }
 }
 function inputEndFrame(skip_mouse?: boolean): void {
   for (let code in key_state_new) {
@@ -1403,6 +1547,8 @@ function inputEndFrame(skip_mouse?: boolean): void {
     mouse_button_had_up_edge = false;
   }
   input_eaten_kb = false;
+  frame_keyup = null;
+  frame_padup = null;
 }
 
 function inputTickInactive(): void {
@@ -1431,7 +1577,9 @@ export function eatAllKeyboardInput(): void {
 export function inputEatForEditBoxEarly(): void {
   for (let code_str in key_state_new) {
     let code = Number(code_str);
-    if (code >= KEYS.SPACE && code <= KEYS.NUMPAD_DIVIDE) {
+    if (code >= KEYS.SPACE && code <= KEYS.Z ||
+      code >= KEYS.NUMPAD0 && code <= KEYS.NUMPAD_DIVIDE
+    ) {
       let ks = key_state_new[code]!;
       if (ks.state === UP) {
         key_state_new[code] = null!;
@@ -1723,7 +1871,7 @@ export function keyDown(keycode: ValidKeyValue, opts?: KeyCheckOpts | null): num
   }
   last_mod = ks.down_mod;
   if (ks.state === DOWN) {
-    assert(ks.down_time); // Will fire if we call keyDown() before tickInput()
+    assert(ks.down_time); // Will fire if we call keyDown() before inputTick()
   }
   return ks.down_time;
 }
@@ -1807,53 +1955,53 @@ export function padGetAxes(out: Vec2, stickindex: number, padindex?: number): vo
   v2copy(out, sticks[stickindex]);
 }
 
+export type PadCheckOpts = {
+  peek?: boolean;
+  mod?: number; // bitmask of 1 << ValidPadValue
+};
+type RealizedPadCheckOpts = WithRequired<PadCheckOpts, 'mod'>;
+
 function padButtonDownInternal(
-  gpd: GamepadData, ps: Rec<number, number>, padcode: ValidPadValue, peek: boolean
+  gpd: GamepadData, ps: PadState, padcode: ValidPadValue, opts: RealizedPadCheckOpts
 ): number {
-  if (ps[padcode]) {
-    return getFrameDt();
+  let pse = ps[padcode];
+  if (pse.value === DOWN || pse.value === DOWN_EDGE) {
+    if ((pse.down_mod & opts.mod) === opts.mod) {
+      return getFrameDt();
+    }
   }
   return 0;
 }
 function padButtonDownEdgeInternal(
-  gpd: GamepadData, ps: Rec<number, number>, padcode: ValidPadValue, peek: boolean
+  gpd: GamepadData, ps: PadState, padcode: ValidPadValue, opts: RealizedPadCheckOpts
 ): number {
-  if (ps[padcode] === DOWN_EDGE) {
-    if (!peek) {
-      ps[padcode] = DOWN;
+  let pse = ps[padcode];
+  if (pse.value === DOWN_EDGE) {
+    if ((pse.down_mod & opts.mod) === opts.mod) {
+      if (!opts.peek) {
+        pse.value = DOWN;
+      }
+      return 1;
     }
-    return 1;
   }
   return 0;
 }
 function padButtonUpEdgeInternal(
-  gpd: GamepadData, ps: Rec<number, number>, padcode: ValidPadValue, peek: boolean
+  gpd: GamepadData, ps: PadState, padcode: ValidPadValue, opts: RealizedPadCheckOpts
 ): number {
-  if (padcode === ANY) {
-    let r = 0;
-    for (let ii = 0; ii < PAD.ANALOG_UP; ++ii) {
-      if (ps[ii] === UP_EDGE) {
-        if (!peek) {
-          delete ps[padcode];
-        }
-        r++;
+  let pse = ps[padcode];
+  if (pse.value === UP_EDGE) {
+    if ((pse.down_mod & opts.mod) === opts.mod) {
+      if (!opts.peek) {
+        pse.value = 0;
       }
+      return 1;
     }
-    return r;
-  }
-  if (ps[padcode] === UP_EDGE) {
-    if (!peek) {
-      delete ps[padcode];
-    }
-    return 1;
   }
   return 0;
 }
 
-export type PadCheckOpts = {
-  peek?: boolean;
-};
-type PadFn = (gpd: GamepadData, ps: Rec<number, number>, padcode: ValidPadValue, peek: boolean) => number;
+type PadFn = (gpd: GamepadData, ps: PadState, padcode: ValidPadValue, opts: RealizedPadCheckOpts) => number;
 function padButtonShared(fn: PadFn, padcode: ValidPadValue, padindex?: number, opts?: PadCheckOpts | null): number {
   assert(padcode !== undefined);
   let r = 0;
@@ -1861,6 +2009,12 @@ function padButtonShared(fn: PadFn, padcode: ValidPadValue, padindex?: number, o
   if (padindex === undefined || padindex === ANY) {
     for (let ii = 0; ii < pad_states.length; ++ii) {
       r += padButtonShared(fn, padcode, ii, opts);
+    }
+    return r;
+  }
+  if (padcode === ANY) {
+    for (let ii = 0; ii < PAD_TOTAL_BUTTONS; ++ii) {
+      r += padButtonShared(fn, ii, padindex, opts);
     }
     return r;
   }
@@ -1872,17 +2026,18 @@ function padButtonShared(fn: PadFn, padcode: ValidPadValue, padindex?: number, o
   if (!gpd) {
     return 0;
   }
+  opts = opts || {};
+  opts.mod = opts.mod || 0;
+  let opts2 = opts as RealizedPadCheckOpts;
   let ps = pad_states[padindex];
-
-  let peek = Boolean(opts && opts.peek);
 
   let am = ANALOG_MAP[padcode];
   if (am) {
     for (let ii = 0; ii < am.length; ++ii) {
-      r += fn(gpd, ps, am[ii], peek) || 0;
+      r += fn(gpd, ps, am[ii], opts2) || 0;
     }
   }
-  r += fn(gpd, ps, padcode, peek);
+  r += fn(gpd, ps, padcode, opts2);
   return r;
 }
 export function padButtonDown(padcode: ValidPadValue, padindex?: number, opts?: PadCheckOpts | null): number {

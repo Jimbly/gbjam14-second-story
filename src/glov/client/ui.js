@@ -57,6 +57,7 @@ const {
 } = require('./input');
 const { linkTick, linkObscureRect } = require('./link.js');
 const { getStringFromLocalizable } = require('./localization.js');
+const { localStorageOnError } = require('./local_storage');
 const { markdownAuto } = require('./markdown');
 const { abs, ceil, floor, max, min, round, sqrt } = Math;
 const { scrollAreaSetPixelScale } = require('./scroll_area.js');
@@ -205,6 +206,15 @@ export function getUIElemData(type, param, allocator) {
   }
   elem_data.frame_index = glov_engine.frame_index;
   return elem_data;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-use-before-define
+let focus_indicator = defaultFocusIndicator;
+export function indicateFocus(x, y, w, h, z) {
+  focus_indicator(x, y, w, h, z);
+}
+export function uiSetFocusIndicator(fn) {
+  focus_indicator = fn;
 }
 
 function doBlurEffect(factor) {
@@ -492,7 +502,27 @@ const base_ui_sprites = {
   collapsagories_rollover: { atlas: 'default' },
   collapsagories_shadow_down: { atlas: 'default' },
   collapsagories_shadow_up: null,
+
+  focusglow: { atlas: 'default' },
 };
+
+function engineDefaultLocalStorageError(e) {
+  if (modal_dialog) {
+    // Already a modal dialog open, don't break the game!
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  modalDialog({
+    title: 'Error writing to Local Storage',
+    text: 'An error occurred writing to the Local Storage, likely due to' +
+      ' security settings or other browser settings.\n\n' +
+      'This app will continue to function normally, however your progress will' +
+      ' likely not be saved if you leave and return later.',
+    buttons: {
+      OK: null,
+    },
+  });
+}
 
 function uiStartup(param) {
   font = param.font;
@@ -530,7 +560,7 @@ function uiStartup(param) {
   // }
 
   button_keys = {
-    ok: { actions: ['ok'], low_actions: ['ok_low'] },
+    ok: { actions: ['ok'], low_actions: ['cancel'] },
     cancel: { actions: ['cancel'] },
   };
   button_keys.yes = { actions: ['ok', 'yes'] };
@@ -549,6 +579,8 @@ function uiStartup(param) {
 
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
   scaleSizes(1);
+
+  localStorageOnError(engineDefaultLocalStorageError);
 }
 
 let dynamic_text_elem;
@@ -1284,6 +1316,7 @@ export function buttonTextDraw(param, state, focused) {
   let text_height = param.font_height;
   if (param.markdown) {
     markdownAuto({
+      key: param.key,
       font: font_use,
       font_style,
       x, y, z,
@@ -1564,9 +1597,7 @@ export function label(param) {
         }
       }
       if (need_focus_indicator) {
-        // No focused style provided, do a generic glow instead?
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        drawElipse(x - w*0.25, y-h*0.25, x + w*1.25, y + h*1.25, z - 0.001, 0.5, unit_vec);
+        focus_indicator(x, y, w, h, z);
       }
     }
   }
@@ -1828,10 +1859,10 @@ function modalDialogRun() {
     for (let ii = 0; ii < keys.length; ++ii) {
       let key = keys[ii];
       let eff_button_keys = button_keys[key.toLowerCase()];
-      if (eff_button_keys && eff_button_keys.low_key) {
+      if (eff_button_keys && eff_button_keys.low_actions) {
         let cur_button = buttons[key];
-        for (let jj = 0; jj < eff_button_keys.low_key.length; ++jj) {
-          if (actionEdge(eff_button_keys.actions[jj],
+        for (let jj = 0; jj < eff_button_keys.low_actions.length; ++jj) {
+          if (actionEdge(eff_button_keys.low_actions[jj],
             cur_button.in_event_cb ? { in_event_cb: cur_button.in_event_cb } : undefined) ||
             eff_button_keys.low_actions[jj] === tick_action
           ) {
@@ -2483,6 +2514,20 @@ export function setFontHeight(_font_height) {
   uiStyleModify(uiStyleDefault(), {
     text_height: _font_height,
   });
+}
+
+function defaultFocusIndicator(x, y, w, h, z) {
+  let grow = min(w, h) * 0.1;
+  h += grow * 2;
+  w += grow * 2;
+  let v_scale = h / sprites.focusglow.uidata.total_h;
+  let h_scale = w / sprites.focusglow.uidata.total_w;
+  drawBox({
+    x: x - grow,
+    y: y - grow,
+    z: z - 0.01,
+    w, h,
+  }, sprites.focusglow, min(v_scale, h_scale));
 }
 
 function uiApplyStyle(style) {

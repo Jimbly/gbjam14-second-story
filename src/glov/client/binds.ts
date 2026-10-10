@@ -12,7 +12,7 @@ export const BIND_FLAG_NOKB = 1<<1;
 export const BIND_LEVEL_PRETICK = 100;
 
 import assert from 'assert';
-import { Rec, TSMap } from 'glov/common/types';
+import { Rec, TSMap, WithRequired } from 'glov/common/types';
 import verify from 'glov/common/verify';
 import { cmd_parse } from './cmds';
 import { getFrameIndex } from './engine';
@@ -29,6 +29,7 @@ import {
   padButtonDown,
   padButtonDownEdge,
   padButtonUpEdge,
+  PadCheckOpts,
   ValidKey,
   ValidPad,
 } from './input';
@@ -93,8 +94,17 @@ type Bind = {
   action: BindAction;
   bindtype: BindType;
   code: number;
+  last_used: number;
   down_frame: number; // set to the current frame if we saw a down edge; only return truthy for down if matching
+  key: ValidKey | ValidPad;
 };
+export function bindIsKey<T extends Bind|BindExport>(bind: T): bind is T & { key: ValidKey } {
+  return bind.bindtype === 'key';
+}
+export function bindIsController<T extends Bind|BindExport>(bind: T): bind is T & { key: ValidPad } {
+  return bind.bindtype === 'controller';
+}
+
 type BindList = {
   code: number;
   binds: Bind[];
@@ -120,10 +130,14 @@ export type BindOpt<T> = {
 };
 
 function cmpLayerPriority(a: Bind, b: Bind): number {
-  return layers[b.layer]!.priority - layers[a.layer]!.priority;
+  let d = layers[b.layer]!.priority - layers[a.layer]!.priority;
+  if (d) {
+    return d;
+  }
+  return b.modifiers - a.modifiers;
 }
 
-export function bindGeneric(entry: BindList, bindtype: BindType, opt: BindOpt<unknown>): void {
+export function bindGeneric(entry: BindList, bindtype: BindType, opt: BindOpt<ValidKey|ValidPad>): void {
   let modifiers = opt.modifiers || 0;
   let layer = opt.layer || 'default';
   assert(layers[layer]);
@@ -134,7 +148,9 @@ export function bindGeneric(entry: BindList, bindtype: BindType, opt: BindOpt<un
     layer,
     bindtype,
     code: entry.code,
+    last_used: -1,
     down_frame: -1,
+    key: opt.key,
   };
   entry.binds.push(bind);
   entry.binds.sort(cmpLayerPriority);
@@ -167,7 +183,10 @@ export function bindBind(bindtype: BindType, opt: BindOpt<ValidKey | ValidPad>):
   }
 }
 
-export function bindUnbind(bindtype: BindType, opt: Partial<BindOpt<ValidKey | ValidPad>>): string[] {
+export function bindUnbind(
+  bindtype: BindType,
+  opt: WithRequired<Partial<BindOpt<ValidKey | ValidPad>>, 'key'|'modifiers'>
+): string[] {
   assert(opt.key); // required parameter
   assert(opt.modifiers !== undefined); // required parameter
   let base_list = all_binds[bindtype];
@@ -225,9 +244,7 @@ const bind_set = [{
   },
 }];
 
-export type BindExport = Omit<Bind, 'code'> & {
-  key: ValidPad | ValidKey;
-};
+export type BindExport = Omit<Bind, 'code' | 'action' | 'down_frame'>;
 export function bindExport(): BindExport[] {
   let ret: BindExport[] = [];
   bind_set.forEach(function (set) {
@@ -245,6 +262,10 @@ export function bindExport(): BindExport[] {
     }
   });
   return ret;
+}
+
+export function bindsForCmd(action: string): BindExport[] {
+  return binds_by_cmd[action] || [];
 }
 
 export type ActionOpts = {
@@ -267,6 +288,21 @@ export function bindDownEdge(action: string, opts?: ActionOpts | null): number {
     }
     let ret = 0;
     verify(bind.action === 'action'); // probably doesn't make sense to query for cmd-type binds?
+    let eff_opts: KeyCheckOpts | PadCheckOpts | null | undefined;
+    if (bind.modifiers) {
+      if (opts) {
+        eff_opts = {
+          ...opts,
+          mod: bind.modifiers,
+        };
+      } else {
+        eff_opts = {
+          mod: bind.modifiers,
+        };
+      }
+    } else {
+      eff_opts = opts;
+    }
     if (bind.bindtype === 'key') {
       if (opts && opts.flags) {
         if (opts.flags & BIND_FLAG_NOKB) {
@@ -278,28 +314,14 @@ export function bindDownEdge(action: string, opts?: ActionOpts | null): number {
           }
         }
       }
-      let eff_opts: KeyCheckOpts | null | undefined;
-      if (bind.modifiers) {
-        if (opts) {
-          eff_opts = {
-            ...opts,
-            mod: bind.modifiers,
-          };
-        } else {
-          eff_opts = {
-            mod: bind.modifiers,
-          };
-        }
-      } else {
-        eff_opts = opts;
-      }
       ret += keyDownEdge(bind.code, eff_opts);
     } else {
-      ret += padButtonDownEdge(bind.code, ANY, opts);
+      ret += padButtonDownEdge(bind.code, ANY, eff_opts);
     }
     if (ret) {
       finalret += ret;
       bind.down_frame = cur_frame;
+      bind.last_used = cur_frame;
     }
   }
   return finalret;
@@ -339,21 +361,22 @@ export function bindDown(action: string, opts?: BindDownOpts | null): number {
       }
     }
     let ret;
+    let eff_opts: KeyCheckOpts | PadCheckOpts | null | undefined = opts;
+    if (bind.modifiers) {
+      eff_opts = {
+        mod: bind.modifiers,
+        peek: opts ? opts.peek : undefined,
+      };
+    }
     if (bind.bindtype === 'key') {
-      let eff_opts: KeyCheckOpts | null | undefined = opts;
-      if (bind.modifiers) {
-        eff_opts = {
-          mod: bind.modifiers,
-          peek: opts ? opts.peek : undefined,
-        };
-      }
       ret = keyDown(bind.code, eff_opts);
     } else {
-      ret = padButtonDown(bind.code, ANY, opts);
+      ret = padButtonDown(bind.code, ANY, eff_opts);
     }
     if (ret) {
       finalret = max(finalret, ret);
       bind.down_frame = cur_frame;
+      bind.last_used = cur_frame;
     }
   }
   return finalret;
@@ -382,6 +405,7 @@ export function bindDispatch(opt?: {
           if (set.downEdge(bindlist.code, {
             mod: bind.modifiers,
           })) {
+            bind.last_used = cur_frame;
             handler(bind.cmd);
           }
         }

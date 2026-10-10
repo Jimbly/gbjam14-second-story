@@ -12,6 +12,7 @@ import {
 } from 'glov/common/vmath';
 import {
   autoAtlas,
+  autoAtlasNoWarn,
   autoAtlasOnImage,
 } from './autoatlas';
 import {
@@ -122,9 +123,11 @@ export function markdownImageRegisterAutoAtlas(atlas_name: string): void {
     if (img_name === 'def') { // exists in every atlas
       return;
     }
+    autoAtlasNoWarn(true);
     markdownImageRegister(img_name, {
       sprite: autoAtlas(atlas_name, img_name),
     });
+    autoAtlasNoWarn(false);
   });
 }
 
@@ -170,11 +173,7 @@ class MDRImg implements MDLayoutBlock, MDDrawBlock, Box {
       } else if (this.aspect) {
         aspect = this.aspect;
       } else {
-        let tex = sprite.texs[0];
-        aspect = tex.width / tex.height;
-        if (sprite.uvs) {
-          aspect *= (sprite.uvs[2] - sprite.uvs[0]) / (sprite.uvs[3] - sprite.uvs[1]);
-        }
+        aspect = sprite.getAspect();
       }
     }
     this.w = h * aspect;
@@ -204,6 +203,7 @@ class MDRImg implements MDLayoutBlock, MDDrawBlock, Box {
       h: this.h,
       frame: img_data.frame,
       color,
+      nozoom: true, // if it's in an atlas, it should have sufficient padding to not need this
     });
     profilerStop();
   }
