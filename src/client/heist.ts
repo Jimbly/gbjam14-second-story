@@ -65,6 +65,7 @@ import {
 } from './main';
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
+import { webFSGetFile } from 'glov/client/webfs';
 
 const DO_SELF_GLOW = false;
 const NOCHASE = false;
@@ -301,8 +302,6 @@ class Level {
     this.def = def;
     this.w = def.w;
     this.h = def.h;
-    this.tile_map.layer_z[1] = Z.HERO;
-    this.tile_map.layer_z[2] = Z.DOOR_HIGHZ;
   }
   tiles: GraphicLayer = [];
   debug(): string {
@@ -437,10 +436,28 @@ const TILED_TILESET: Rec<number, [string, Cell]> = {
   29: ['shopkeeper', 'floor'],
   30: ['fire1', 'wall'],
 };
-function levelFromJSON(json: DataObject, jailbreak: number): Level {
+function levelFromJSON(json: DataObject, jailbreak: number, is_ldtk: boolean): Level {
   let level = new Level(TOWNDEF);
   let { tile_map } = level;
-  tile_map.fromTiled(json, TILED_TILESET, 'floor');
+  if (is_ldtk) {
+    tile_map.fromLDtk(json, {
+      wall: 'wall',
+      door: 'door',
+      ceiling1: 'floor',
+      ceiling2: 'floor',
+      null: 'floor',
+      gate: 'door',
+    }, 'floor');
+    tile_map.layer_z[0] = Z.WALLS;
+    tile_map.layer_z[1] = Z.WALLS;
+    tile_map.layer_z[2] = Z.HERO;
+    tile_map.layer_z[3] = Z.DOOR_HIGHZ;
+  } else {
+    tile_map.fromTiled(json, TILED_TILESET, 'floor');
+    tile_map.layer_z[0] = Z.WALLS;
+    tile_map.layer_z[1] = Z.HERO;
+    tile_map.layer_z[2] = Z.DOOR_HIGHZ;
+  }
   level.cells = tile_map.enum_layer;
   level.tiles = tile_map.gfx_layers[0];
   level.w = tile_map.w;
@@ -931,100 +948,120 @@ export function heistIsSpecial(): boolean {
 }
 
 function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
-  let json = LEVELS[name];
   cur_map = name;
-  level = levelFromJSON(json, jailbreak);
-  let { tiles, events, tile_map } = level;
-  tile_map.gfx_layers[1] = [];
-  let layer1 = tile_map.gfx_layers[1];
-  tile_map.gfx_layers[2] = [];
-  let layer2 = tile_map.gfx_layers[2];
-  for (let yy = 0; yy < level.h; ++yy) {
-    let row = tiles[yy];
-    if (!row) {
-      continue;
-    }
-    for (let xx = 0; xx < level.w; ++xx) {
-      let tile = row[xx];
-      if (tile === 'shop') {
-        events.push({
-          pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
-          type: 'shopenter',
-        });
-      } else if (tile === 'jail') {
-        events.push({
-          pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
-          type: 'jailenter',
-        });
-      } else if (tile === 'door-h') {
-        layer2[yy] = layer2[yy] || [];
-        layer2[yy]![xx] ='door-h-highz';
-        if (name === 'ramirrors') {
+  let json = LEVELS[name];
+  let layer1: GraphicLayer | undefined;
+  let layer2: GraphicLayer | undefined;
+  let walk_layers: GraphicLayer[];
+  if (name === 'town') {
+    json = webFSGetFile('town.ldtkl', 'jsobj');
+    level = levelFromJSON(json, jailbreak, true);
+    walk_layers = [
+      level.tile_map.gfx_layers[0],
+      level.tile_map.gfx_layers[1],
+      level.tile_map.gfx_layers[2],
+    ];
+  } else {
+    level = levelFromJSON(json, jailbreak, false);
+    level.tile_map.gfx_layers[1] = [];
+    level.tile_map.gfx_layers[2] = [];
+    layer1 = level.tile_map.gfx_layers[1];
+    layer2 = level.tile_map.gfx_layers[2];
+    walk_layers = [level.tile_map.gfx_layers[0]];
+  }
+  let { events } = level;
+  for (let layer_idx = 0; layer_idx < walk_layers.length; ++layer_idx) {
+    let layer = walk_layers[layer_idx];
+    for (let yy = 0; yy < layer.length; ++yy) {
+      let row = layer[yy];
+      if (!row) {
+        continue;
+      }
+      for (let xx = 0; xx < row.length; ++xx) {
+        let tile = row[xx];
+        if (tile === 'shop') {
           events.push({
-            pos: [xx, yy],
-            type: 'exit',
+            pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
+            type: 'shopenter',
           });
-        }
-      } else if (tile === 'door-v') {
-        if (xx === level.w - 1 && name === 'town') {
+        } else if (tile === 'jail') {
           events.push({
-            pos: [xx, yy],
-            type: 'startheist',
+            pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
+            type: 'jailenter',
           });
-        } else if (name === 'jail') {
-          if (xx > 4) {
+        } else if (tile === 'door-h') {
+          if (layer2) {
+            layer2[yy] = layer2[yy] || [];
+            layer2[yy]![xx] ='door-h-highz';
+          }
+          if (name === 'ramirrors') {
             events.push({
-              pos: [xx+1, yy],
-              type: 'jailenter',
+              pos: [xx, yy],
+              type: 'exit',
             });
           }
-        } else if (name === 'ramirrors') {
+        } else if (tile === 'door-v') {
+          if (xx === level.w - 1 && name === 'town') {
+            events.push({
+              pos: [xx, yy],
+              type: 'startheist',
+            });
+          } else if (name === 'jail') {
+            if (xx > 4) {
+              events.push({
+                pos: [xx+1, yy],
+                type: 'jailenter',
+              });
+            }
+          } else if (name === 'ramirrors') {
+            events.push({
+              pos: [xx, yy],
+              type: 'startheist5',
+            });
+          }
+        } else if (tile === 'celldoor') {
+          if (jailbreak) {
+            level.cells[yy][xx] = 'door';
+          }
           events.push({
             pos: [xx, yy],
-            type: 'startheist5',
+            type: 'celldoor',
           });
+        } else if (tile === 'shopkeeper') {
+          assert(layer1);
+          layer1[yy] = layer1[yy] || [];
+          layer1[yy]![xx] = 'shopkeeper';
+          row[xx] = 'floor-1';
+          events.push({
+            pos: [xx, yy],
+            type: 'shop',
+          });
+        } else if (tile === 'npc') {
+          events.push({
+            pos: [xx, yy],
+            type: 'informant',
+          });
+        } else if (tile === 'event-1') {
+          row[xx] = 'floor-1';
+          events.push({
+            pos: [xx, yy],
+            type: 'storyevent1',
+          });
+        } else if (tile === 'event-2') {
+          row[xx] = 'floor-1';
+          events.push({
+            pos: [xx, yy],
+            type: 'storyevent2',
+          });
+        } else if (tile === 'gate') {
+          events.push({
+            pos: [xx, yy],
+            type: 'townexit',
+          });
+        } else if (tile === 'fire1') {
+          level.fires.push({ x: xx, y: yy });
+          row[xx] = 'floor-2';
         }
-      } else if (tile === 'celldoor') {
-        if (jailbreak) {
-          level.cells[yy][xx] = 'door';
-        }
-        events.push({
-          pos: [xx, yy],
-          type: 'celldoor',
-        });
-      } else if (tile === 'shopkeeper') {
-        layer1[yy] = layer1[yy] || [];
-        layer1[yy]![xx] = 'shopkeeper';
-        row[xx] = 'floor-1';
-        events.push({
-          pos: [xx, yy],
-          type: 'shop',
-        });
-      } else if (tile === 'npc') {
-        events.push({
-          pos: [xx, yy],
-          type: 'informant',
-        });
-      } else if (tile === 'event-1') {
-        row[xx] = 'floor-1';
-        events.push({
-          pos: [xx, yy],
-          type: 'storyevent1',
-        });
-      } else if (tile === 'event-2') {
-        row[xx] = 'floor-1';
-        events.push({
-          pos: [xx, yy],
-          type: 'storyevent2',
-        });
-      } else if (tile === 'gate') {
-        events.push({
-          pos: [xx, yy],
-          type: 'townexit',
-        });
-      } else if (tile === 'fire1') {
-        level.fires.push({ x: xx, y: yy });
-        row[xx] = 'floor-2';
       }
     }
   }
@@ -1038,7 +1075,7 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
     level.cells[4][2] = 'wall';
 
     if (jailbreak > 0) {
-      tiles[2]![4] = 'loot';
+      walk_layers[0][2]![4] = 'loot';
       events.push({
         pos: [4, 2],
         type: 'jailloot',

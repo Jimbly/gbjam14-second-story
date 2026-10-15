@@ -4,6 +4,8 @@ const path = require('path');
 const { asyncSeries } = require('glov-async');
 const gb = require('glov-build');
 
+const { max } = Math;
+
 module.exports = function () {
   function proc(job, done) {
     let file = job.getFile();
@@ -60,12 +62,17 @@ module.exports = function () {
         assert(layers && layers.length > 1);
         let layers_out = [];
         let enum_layer;
+        let map_w = 0;
+        let map_h = 0;
+
         layers.forEach(function (layer, layer_idx) {
           let layer_out = [];
           let name = layer.__identifier;
           // let tile_size = layer.__gridSize;
           let layer_w = layer.__cWid;
           let layer_h = layer.__cHei;
+          map_w = max(map_w, layer_w);
+          map_h = max(map_h, layer_h);
           // layers_out.push({
           //   name,
           //   w: layer_w,
@@ -86,6 +93,7 @@ module.exports = function () {
               let x = posidx % layer_w;
               let y = (posidx - x) / layer_w;
               let tile = entry.t;
+              // TODO: support `f` for flipping/rotating
               assert(typeof tile === 'number');
               if (!tile) {
                 continue;
@@ -136,6 +144,8 @@ module.exports = function () {
         job.out({
           relative: `client/${levelname}.ldtkl`,
           contents: JSON.stringify({
+            w: map_w,
+            h: map_h,
             layers: layers_out,
             enum_layer,
           })

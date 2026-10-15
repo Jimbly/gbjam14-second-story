@@ -1534,7 +1534,7 @@ export function main(): void {
     // player_state.did_hint = 1;
     // player_state.goal = 'outtahere';
     // initCutsceneMap('ramirrors');
-    startHeist(0);
+    // startHeist(0);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

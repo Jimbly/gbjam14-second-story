@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { DataObject, Rec } from 'glov/common/types';
+import { DataObject, Rec, TSMap } from 'glov/common/types';
 import { clamp } from 'glov/common/util';
 import { Vec2 } from 'glov/common/vmath';
 import { autoAtlas } from './autoatlas';
@@ -161,6 +161,46 @@ class TileMap<EnumType extends string=string> {
       }
     }
     this.gfx_layers[0] = tiles;
+    this.enumLayerSet(enums);
+  }
+
+  fromLDtk(
+    json_obj: unknown,
+    enum_lookup: TSMap<EnumType>,
+    open_enum: EnumType,
+  ): void {
+    type SparseArray = ((string|null)[]|null)[];
+    type LDtkData = {
+      w: number;
+      h: number;
+      layers: SparseArray[];
+      enum_layer?: SparseArray;
+    };
+
+    let { w, h, layers, enum_layer } = json_obj as LDtkData;
+    this.gfx_layers = [];
+    let { gfx_layers } = this;
+    for (let ii = 0; ii < layers.length; ++ii) {
+      let layer = layers[ii];
+      gfx_layers.push(layer);
+    }
+
+    let enums: EnumLayer<EnumType> = [];
+    for (let yy = 0, idx=0; yy < h; ++yy) {
+      let enum_row: EnumType[] = [];
+      enums.push(enum_row);
+      for (let xx = 0; xx < w; ++xx, ++idx) {
+        let v = enum_layer && enum_layer[yy] && enum_layer[yy]![xx];
+
+        if (v) {
+          assert(enum_lookup[v], v);
+          let ev = enum_lookup[v];
+          enum_row.push(ev);
+        } else {
+          enum_row.push(open_enum);
+        }
+      }
+    }
     this.enumLayerSet(enums);
   }
 
