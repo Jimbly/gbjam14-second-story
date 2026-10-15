@@ -1296,15 +1296,14 @@ function doMotion(dt: number, is_town: boolean): void {
     }
   }
   dt = min(dt, 1000/15); // below 15fps, just slow down
-  v2iNormalize(impulse);
   // default speed : 1 pixel per 60fps frame
   let move_dist = dt * heist_state.speed * 1/14/(1000/60);
-  v2iScale(impulse, move_dist);
 
   let motion_ret = topdownMotion({
     layer: level.tile_map.enum_layer,
     solid_tiles: SOLID_TILES,
     pos,
+    move_dist,
     impulse,
   });
 

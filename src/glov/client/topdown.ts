@@ -18,6 +18,7 @@ import {
   v2distSq,
   v2iAdd,
   v2iNormalize,
+  v2iScale,
   v2length,
   v2sub,
   Vec2,
@@ -126,9 +127,13 @@ export function topdownMotion<T extends string=string>(params: {
   layer: EnumLayer<T>;
   solid_tiles: Rec<T, boolean>;
   pos: Vec2;
-  impulse: Vec2; // actual distance desired (app scales by time/etc)
+  move_dist: number;
+  impulse: Vec2; // this gets normalized and multiplied by move_dist
 }): MotionRet {
-  let { layer, solid_tiles, pos, impulse } = params;
+  let { layer, solid_tiles, pos, impulse, move_dist } = params;
+
+  v2iNormalize(impulse);
+  v2iScale(impulse, move_dist);
 
   let startx = pos[0];
   let starty = pos[1];
@@ -150,7 +155,7 @@ export function topdownMotion<T extends string=string>(params: {
 
     function cellIsOpen(xx: number, yy: number): boolean {
       let cell = layer[yy] && layer[yy][xx];
-      return cell !== undefined && !solid_tiles[cell];
+      return !cell || !solid_tiles[cell];
     }
 
     for (let do_edges_twice = 0; do_edges_twice < 2; do_edges_twice++) {
@@ -305,7 +310,6 @@ export function topdownMotion<T extends string=string>(params: {
   }
 
   let dist = v2dist([startx, starty], pos);
-  let move_dist = v2length(impulse);
   if ((dist - move_dist) / move_dist > 0.01) { // more than 1% extra movement distance
     let delta = v2sub([0, 0], pos, [startx, starty]);
     v2iNormalize(delta);
