@@ -1532,9 +1532,9 @@ export function main(): void {
     engine.setState(statePlay);
     // player_state.num_picks = 5;
     // player_state.did_hint = 1;
-    player_state.goal = 'outtahere';
+    // player_state.goal = 'outtahere';
     // initCutsceneMap('ramirrors');
-    // startHeist(5);
+    startHeist(3);
     // getHeistState().loot = 200;
     // startTown(false, false);
     // startUnlocking(10, null);

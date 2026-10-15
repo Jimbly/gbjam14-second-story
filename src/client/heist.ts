@@ -4,7 +4,7 @@ import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animat
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { applyCopy, effectsIsFinal, effectsQueue } from 'glov/client/effects';
-import { DEBUG, getFrameTimestamp } from 'glov/client/engine';
+import { DEBUG, getFrameIndex, getFrameTimestamp } from 'glov/client/engine';
 import { ALIGN, fontStyle } from 'glov/client/font';
 import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { keyDown, KEYS } from 'glov/client/input';
@@ -16,6 +16,12 @@ import {
   spriteQueueFn,
   Texture,
 } from 'glov/client/sprites';
+import {
+  GraphicLayer,
+  GraphicTile,
+  TileMap,
+  tileMapCreate,
+} from 'glov/client/tilemap';
 import {
   DX,
   DY,
@@ -286,15 +292,19 @@ class Level {
   w: number;
   h: number;
   jailbreak = 0;
-  // tile_map: TileMap<Cell> = tileMapCreate();
+  tile_map: TileMap<Cell> = tileMapCreate({
+    tile_w: TILESIZE,
+    atlas_name: 'gfx',
+  });
   cells: EnumLayer<Cell> = [];
   constructor(def: HeistDef) {
     this.def = def;
     this.w = def.w;
     this.h = def.h;
-    // this.tile_map.enumLayerSet(0, this.cells);
+    this.tile_map.layer_z[1] = Z.HERO;
+    this.tile_map.layer_z[2] = Z.DOOR_HIGHZ;
   }
-  tiles: string[][] = [];
+  tiles: GraphicLayer = [];
   debug(): string {
     let { cells } = this;
     let chars = cells.map((row) => {
@@ -338,7 +348,6 @@ Z.DOORS = 39;
 Z.LIGHT = 40;
 Z.FIRELIGHT = 45;
 Z.HERO = 50;
-Z.SHOPKEEPER = 50;
 Z.FIRE = 54;
 Z.GUARDS = 55;
 Z.CEILING = 60;
@@ -352,7 +361,7 @@ const TILE_Z: Rec<string, number> = {
   'jail': Z.WALLS,
   'shop': Z.WALLS,
   'npc': Z.WALLS,
-  'shopkeeper': Z.SHOPKEEPER,
+  'shopkeeper': Z.HERO,
   'wall-h': Z.WALLS,
   'wall-v': Z.WALLS,
   'wall-corner': Z.WALLS,
@@ -375,11 +384,18 @@ const TILE_Z: Rec<string, number> = {
   'guard-left': Z.HERO,
 };
 
-function cellsToTiles(level: Level): void {
-  let { w, h, cells } = level;
-  let tiles: string[][] = [];
+function cellsToTiles(level: Level, set?: string): void {
+  set = set || '';
+  let { w, h, cells, tile_map } = level;
+  level.tile_map.enumLayerSet(cells);
+  tile_map.gfx_layers[0] = [];
+  tile_map.gfx_layers[1] = [];
+  tile_map.gfx_layers[2] = [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let [layer0, layer1, layer2] = tile_map.gfx_layers;
   for (let yy = 0; yy < h; ++yy) {
-    let row: string[] = [];
+    let layer0row: GraphicTile[] = [];
+    let layer2row: GraphicTile[] | undefined;
     for (let xx = 0; xx < w; ++xx) {
       let cellabove = yy && cells[yy - 1][xx] || 'floor';
       let cellleft = cells[yy][xx - 1] || 'floor';
@@ -400,138 +416,63 @@ function cellsToTiles(level: Level): void {
           spr = 'door-v';
         } else {
           spr = 'door-h';
+          layer2row = layer2row || [];
+          layer2row[xx] = `${set}door-h-highz`;
         }
       } else {
         spr = DO_SELF_GLOW ? 'floor-1b' : 'floor-1';
       }
-      row.push(spr);
+      layer0row.push(`${set}${spr}`);
     }
-    tiles.push(row);
+    layer0.push(layer0row);
+    if (layer2row) {
+      layer2[yy] = layer2row;
+    }
   }
-  level.tiles = tiles;
+  level.tiles = layer0;
 }
 
-function tilesToCells(level: Level): void {
-  let { tiles, w, h, cells } = level;
-  for (let yy = 0; yy < h; ++yy) {
-    let row: Cell[] = [];
-    for (let xx = 0; xx < w; ++xx) {
-      let tile = tiles[yy][xx];
-      switch (tile) {
-        case 'wall-h':
-        case 'wall-v':
-        case 'wall-corner':
-        case 'jail':
-        case 'shop':
-        case 'wall-h-bottom':
-        case 'wall-ll':
-        case 'wall-lr':
-        case 'wall-upper-corner':
-        case 'wall-left-t':
-        case 'fire1':
-        case 'guard-left':
-        case 'guard-right':
-          row.push('wall');
-          break;
-        case 'door-v':
-        case 'door-h':
-        case 'gate':
-          row.push('door');
-          break;
-        case 'celldoor':
-          if (level.jailbreak) {
-            row.push('door');
-          } else {
-            row.push('wall');
-          }
-          break;
-        case 'shopkeeper':
-        case 'npc':
-        case 'floor-1':
-        case 'floor-2':
-        case 'loot':
-        case 'event-1':
-        case 'event-2':
-        case 'chest-opened':
-        case 'chest-aborted':
-        case 'none':
-          row.push('floor');
-          break;
-        default:
-          assert(false, tile);
-      }
-    }
-    cells.push(row);
-  }
-}
-
-type TiledLayer = {
-  data: number[];
-  width: number;
-  height: number;
-  x: number;
-  y: number;
-};
-const TILED_TILESET: Rec<number, string> = {
-  0: 'chest',
-  1: 'chest-aborted',
-  2: 'chest-opened',
-  3: 'chest-special',
-  4: 'door-h',
-  5: 'door-open-h',
-  6: 'door-open-v',
-  7: 'door-v',
-  8: 'floor-1',
-  9: 'floor-2',
-  10: 'wall-corner',
-  11: 'wall-h',
-  12: 'wall-v',
-  13: 'npc',
-  14: 'jail',
-  15: 'shop',
-  16: 'hero-up',
-  17: 'guard-right',
-  18: 'guard-left',
-  20: 'event-1',
-  21: 'gate',
-  22: 'celldoor',
-  23: 'event-2',
-  24: 'wall-h-bottom',
-  25: 'wall-ll',
-  26: 'wall-lr',
-  27: 'wall-upper-corner',
-  28: 'wall-left-t',
-  29: 'shopkeeper',
-  30: 'fire1',
+const TILED_TILESET: Rec<number, [string, Cell]> = {
+  0: ['chest', 'floor'],
+  1: ['chest-aborted', 'floor'],
+  2: ['chest-opened', 'floor'],
+  3: ['chest-special', 'floor'],
+  4: ['door-h', 'door'],
+  5: ['door-open-h', 'floor'],
+  6: ['door-open-v', 'floor'],
+  7: ['door-v', 'door'],
+  8: ['floor-1', 'floor'],
+  9: ['floor-2', 'floor'],
+  10: ['wall-corner', 'wall'],
+  11: ['wall-h', 'wall'],
+  12: ['wall-v', 'wall'],
+  13: ['npc', 'floor'],
+  14: ['jail', 'wall'],
+  15: ['shop', 'wall'],
+  16: ['hero-up', 'wall'],
+  17: ['guard-right', 'wall'],
+  18: ['guard-left', 'wall'],
+  20: ['event-1', 'floor'],
+  21: ['gate', 'door'],
+  22: ['celldoor', 'wall'],
+  23: ['event-2', 'floor'],
+  24: ['wall-h-bottom', 'wall'],
+  25: ['wall-ll', 'wall'],
+  26: ['wall-lr', 'wall'],
+  27: ['wall-upper-corner', 'wall'],
+  28: ['wall-left-t', 'wall'],
+  29: ['shopkeeper', 'floor'],
+  30: ['fire1', 'wall'],
 };
 function levelFromJSON(json: DataObject, jailbreak: number): Level {
   let level = new Level(TOWNDEF);
-  level.w = json.width as number;
-  level.h = json.height as number;
+  let { tile_map } = level;
+  tile_map.fromTiled(json, TILED_TILESET, 'floor');
+  level.cells = tile_map.enum_layer;
+  level.tiles = tile_map.gfx_layers[0];
+  level.w = tile_map.w;
+  level.h = tile_map.h;
   level.jailbreak = jailbreak;
-  let layers = json.layers as TiledLayer[];
-  assert(layers.length === 1);
-  let layer = layers[0];
-  assert(!layer.x);
-  assert(!layer.y);
-  assert(layer.width === level.w);
-  assert(layer.height === level.h);
-  level.tiles = [];
-  for (let yy = 0, idx=0; yy < level.h; ++yy) {
-    let row: string[] = [];
-    level.tiles.push(row);
-    for (let xx = 0; xx < level.w; ++xx, ++idx) {
-      let tileidx = layer.data[idx];
-      if (!tileidx) {
-        row.push('none');
-      } else {
-        let tile = TILED_TILESET[tileidx - 1];
-        assert(tile);
-        row.push(tile);
-      }
-    }
-  }
-  tilesToCells(level);
   return level;
 }
 
@@ -968,7 +909,7 @@ function genLevel(def: HeistDef): void {
     });
   }
 
-  cellsToTiles(level);
+  cellsToTiles(level, def.set);
 }
 
 export function doubleLockBonus(): number {
@@ -1020,10 +961,18 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
   let json = LEVELS[name];
   cur_map = name;
   level = levelFromJSON(json, jailbreak);
-  let { tiles, events } = level;
+  let { tiles, events, tile_map } = level;
+  tile_map.gfx_layers[1] = [];
+  let layer1 = tile_map.gfx_layers[1];
+  tile_map.gfx_layers[2] = [];
+  let layer2 = tile_map.gfx_layers[2];
   for (let yy = 0; yy < level.h; ++yy) {
+    let row = tiles[yy];
+    if (!row) {
+      continue;
+    }
     for (let xx = 0; xx < level.w; ++xx) {
-      let tile = tiles[yy][xx];
+      let tile = row[xx];
       if (tile === 'shop') {
         events.push({
           pos: [xx-1, yy + (name === 'town' ? -1 : 1)],
@@ -1035,6 +984,8 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
           type: 'jailenter',
         });
       } else if (tile === 'door-h') {
+        layer2[yy] = layer2[yy] || [];
+        layer2[yy]![xx] ='door-h-highz';
         if (name === 'ramirrors') {
           events.push({
             pos: [xx, yy],
@@ -1061,11 +1012,17 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
           });
         }
       } else if (tile === 'celldoor') {
+        if (jailbreak) {
+          level.cells[yy][xx] = 'door';
+        }
         events.push({
           pos: [xx, yy],
           type: 'celldoor',
         });
       } else if (tile === 'shopkeeper') {
+        layer1[yy] = layer1[yy] || [];
+        layer1[yy]![xx] = 'shopkeeper';
+        row[xx] = 'floor-1';
         events.push({
           pos: [xx, yy],
           type: 'shop',
@@ -1076,13 +1033,13 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
           type: 'informant',
         });
       } else if (tile === 'event-1') {
-        tiles[yy][xx] = 'floor-1';
+        row[xx] = 'floor-1';
         events.push({
           pos: [xx, yy],
           type: 'storyevent1',
         });
       } else if (tile === 'event-2') {
-        tiles[yy][xx] = 'floor-1';
+        row[xx] = 'floor-1';
         events.push({
           pos: [xx, yy],
           type: 'storyevent2',
@@ -1094,7 +1051,7 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
         });
       } else if (tile === 'fire1') {
         level.fires.push({ x: xx, y: yy });
-        tiles[yy][xx] = 'floor-2';
+        row[xx] = 'floor-2';
       }
     }
   }
@@ -1108,7 +1065,7 @@ function initMap(name: keyof typeof LEVELS, jailbreak: number): void {
     level.cells[4][2] = 'wall';
 
     if (jailbreak > 0) {
-      tiles[2][4] = 'loot';
+      tiles[2]![4] = 'loot';
       events.push({
         pos: [4, 2],
         type: 'jailloot',
@@ -1204,7 +1161,7 @@ function doEvent(event: MapEvent): void {
                       dialogLine.bind(null, 'HUMPHREY', 'This is so going to get me fired... but it\'s either that or another divorce... just don\'t tell anyone it was me.',
                         dialogLine.bind(null, HERO, 'I am the soul of discretion. Hump.', function () {
                           level.cells[12][3] = 'floor';
-                          level.tiles[12][3] = 'floor-1';
+                          level.tiles[12]![3] = 'floor-1';
                           player_state.goal = 'search3b';
                           setScore();
                         })
@@ -1263,7 +1220,7 @@ function doEvent(event: MapEvent): void {
         playerFloater(`[c=3]+${player_state.jailbreak}G[/c]`);
         player_state.money += player_state.jailbreak;
         player_state.jailbreak = 0;
-        level.tiles[2][4] = 'floor-1';
+        level.tiles[2]![4] = 'floor-1';
         playSound('pickup');
         setScore();
       }
@@ -1335,7 +1292,7 @@ function doMotion(dt: number, is_town: boolean): void {
   v2iScale(impulse, move_dist);
 
   let motion_ret = topdownMotion({
-    layer: level.cells,
+    layer: level.tile_map.enum_layer,
     solid_tiles: SOLID_TILES,
     pos,
     impulse,
@@ -2103,37 +2060,47 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     blend: BLEND_ADDITIVE,
     z: Z.LIGHT,
   });
-
+  let { tiles, chests, guards, w, h } = level;
   let x0 = floor(mapped_pos0[0] / TILESIZE);
   let x1 = floor(mapped_pos1[0] / TILESIZE);
   let y0 = floor(mapped_pos0[1] / TILESIZE);
   let y1 = floor(mapped_pos1[1] / TILESIZE);
-  let { tiles, chests, guards, w, h } = level;
-  let { set } = level.def;
-  for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
-    for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
-      let spr = tiles[yy][xx];
-      if (spr === 'none') {
+
+  if (getFrameIndex() % 2 || keyDown(KEYS.SHIFT)) {
+    level.tile_map.draw({
+      z: Z.FLOORS,
+    });
+  } else {
+    let { set } = level.def;
+    for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
+      let row = tiles[yy];
+      if (!row) {
         continue;
       }
-      let z = TILE_Z[spr];
-      assert(z);
-      let spr2 = set ? `${set}${spr}` : spr;
-      autoAtlas('gfx', spr2).draw({
-        x: xx * TILESIZE,
-        y: yy * TILESIZE,
-        w: TILESIZE,
-        h: TILESIZE,
-        z,
-      });
-      if (spr === 'door-h') {
-        autoAtlas('gfx', `${set}door-h-highz`).draw({
+      for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
+        let spr = row[xx];
+        if (!spr) {
+          continue;
+        }
+        let spr_simple = set ? spr.slice(set.length) : spr;
+        let z = TILE_Z[spr_simple];
+        assert(z);
+        autoAtlas('gfx', spr).draw({
           x: xx * TILESIZE,
           y: yy * TILESIZE,
           w: TILESIZE,
           h: TILESIZE,
-          z: Z.DOOR_HIGHZ,
+          z,
         });
+        if (spr_simple === 'door-h') {
+          autoAtlas('gfx', `${set}door-h-highz`).draw({
+            x: xx * TILESIZE,
+            y: yy * TILESIZE,
+            w: TILESIZE,
+            h: TILESIZE,
+            z: Z.DOOR_HIGHZ,
+          });
+        }
       }
     }
   }
@@ -2431,6 +2398,7 @@ export function doHeistView(dt: number, rect: UIBox): void {
   doGuards(unpaused_dt);
   doMotion(0, false);
 
+  // clipping doesn't work because the post-processing effects clobber the scissor rect
   // spriteClipPush(Z.BACKGROUND + 1, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
   doHeistViewSub(rect, dt);
   // spriteClipPop();
