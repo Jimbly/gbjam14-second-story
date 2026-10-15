@@ -19,7 +19,6 @@ import {
   v2iAdd,
   v2iNormalize,
   v2iScale,
-  v2length,
   v2sub,
   Vec2,
 } from 'glov/common/vmath';

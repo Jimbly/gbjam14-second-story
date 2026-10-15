@@ -30,6 +30,7 @@ import {
 } from 'glov/client/topdown';
 import { active as transitionActive } from 'glov/client/transition';
 import { drawBox, drawLine, drawRect, UIBox, uiGetFont, uiTextHeight } from 'glov/client/ui';
+import { webFSGetFile } from 'glov/client/webfs';
 import { randCreate, shuffleArray } from 'glov/common/rand_alea';
 import { DataObject, Rec, VoidFunc } from 'glov/common/types';
 import { arrayToSet, clamp, easeOut, ridx, sign } from 'glov/common/util';
@@ -39,8 +40,6 @@ import {
   JSVec4,
   unit_vec,
   v2distSq,
-  v2iNormalize,
-  v2iScale,
   v2same,
   Vec4,
 } from 'glov/common/vmath';
@@ -65,7 +64,6 @@ import {
 } from './main';
 import { optionsMenu } from './options';
 import { playSound } from './sound_data';
-import { webFSGetFile } from 'glov/client/webfs';
 
 const DO_SELF_GLOW = false;
 const NOCHASE = false;
