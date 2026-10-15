@@ -1986,27 +1986,13 @@ function lightPassApply(): void {
   });
 }
 
-let mapped_pos0: JSVec2 = [0,0];
-let mapped_pos1: JSVec2 = [0,0];
 function doHeistViewSub(rect: UIBox, dt: number): void {
   let { pos } = heist_state;
+  let { chests, guards, w, h, tile_map } = level;
 
   let hx = round(pos[0] * TILESIZE);
   let hy = round(pos[1] * TILESIZE);
-  let centerx = floor(rect.x + rect.w/2);
-  let centery = floor(rect.y + rect.h/2);
-  let mapped_box = {
-    x: 0, y: 0, w: 0, h: 0,
-  };
-  camera2d.virtualToDomPosParam(mapped_box, {
-    x: 0, y: 0,
-    w: game_width, h: game_height,
-  });
-  camera2d.shift(
-    clamp(-centerx + hx, -rect.x, level.w * TILESIZE - rect.w),
-    clamp(-centery + hy, -rect.y - TILESIZE, level.h * TILESIZE - rect.h));
-  camera2d.domToVirtual(mapped_pos0, [mapped_box.x, mapped_box.y]);
-  camera2d.domToVirtual(mapped_pos1, [mapped_box.x + mapped_box.w, mapped_box.y + mapped_box.h]);
+  tile_map.centerCamera(pos, rect);
 
   effectsQueue(Z.LIGHTPASS, lightPassCapture);
   effectsQueue(Z.VISMAPCAPTURE, vismapCapture);
@@ -2033,13 +2019,12 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     blend: BLEND_ADDITIVE,
     z: Z.LIGHT,
   });
-  let { chests, guards, w, h } = level;
-  let x0 = floor(mapped_pos0[0] / TILESIZE);
-  let x1 = floor(mapped_pos1[0] / TILESIZE);
-  let y0 = floor(mapped_pos0[1] / TILESIZE);
-  let y1 = floor(mapped_pos1[1] / TILESIZE);
+  let x0 = floor(camera2d.x0() / TILESIZE);
+  let x1 = floor(camera2d.x1() / TILESIZE);
+  let y0 = floor(camera2d.y0() / TILESIZE);
+  let y1 = floor(camera2d.y1() / TILESIZE);
 
-  level.tile_map.draw({
+  tile_map.draw({
     z: Z.FLOORS,
   });
 
@@ -2290,7 +2275,7 @@ function doFloaters(dt: number): void {
       text_w = max(text_w, ww);
     });
     xx -= floor(text_w/2);
-    xx = clamp(xx, mapped_pos0[0], mapped_pos1[0] - text_w - 4);
+    xx = clamp(xx, camera2d.x0(), camera2d.x1() - text_w - 4);
     let h = markdownAuto({
       x: xx,
       y: yy,

@@ -1,11 +1,15 @@
 import assert from 'assert';
 import { DataObject, Rec } from 'glov/common/types';
+import { clamp } from 'glov/common/util';
+import { JSVec2, Vec2 } from 'glov/common/vmath';
 import { autoAtlas } from './autoatlas';
 import * as camera2d from './camera2d';
+import * as engine from './engine';
 import { spriteClipped, spriteClippedViewport } from './sprites';
 import { EnumLayer } from './topdown';
+import { UIBox } from './ui';
 
-const { floor, max, min } = Math;
+const { floor, max, min, round } = Math;
 
 export type GraphicTile = string|null|undefined;
 export type GraphicLayer = (GraphicTile[] | undefined | null)[];
@@ -34,10 +38,33 @@ class TileMap<EnumType extends string=string> {
   w = 0;
   h = 0;
 
+  rounded = true;
+
   constructor(param: TileMapParams) {
     this.atlas_name = param.atlas_name;
     this.tile_w = param.tile_w;
     this.tile_h = param.tile_h || param.tile_w;
+  }
+
+  centerCamera(pos: Vec2, screen_rect?: UIBox): void {
+    let rect = screen_rect || {
+      x: camera2d.x0(),
+      y: camera2d.y0(),
+      w: camera2d.w(),
+      h: camera2d.h(),
+    };
+    let { tile_w, tile_h } = this;
+    let hx = pos[0] * tile_w;
+    let hy = pos[1] * tile_h;
+    if (this.rounded) {
+      hx = round(hx);
+      hy = round(hy);
+    }
+    let centerx = floor(rect.x + rect.w/2);
+    let centery = floor(rect.y + rect.h/2);
+    camera2d.shift(
+      clamp(-centerx + hx, -rect.x, this.w * tile_w - rect.w),
+      clamp(-centery + hy, -rect.y - tile_h, this.h * tile_h - rect.h));
   }
 
   // draws the map located at (camera-space) 0,0 - use camera shifting to get the appropriate part in view
