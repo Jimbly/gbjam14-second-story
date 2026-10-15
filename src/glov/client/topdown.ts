@@ -234,14 +234,14 @@ export function topdownMotion<T extends string=string>(params: {
                   if (fdx <= 0) {
                     fx2 -= lost;
                   }
-                } else if (fparty2 >= 0.25 &&
+                } else if (fpartx2 >= 0.25 &&
                   open_adj[1 + dy][2] &&
                   open_adj[1][2]
                 ) {
                   if (fdx >= 0) {
                     fx2 += lost;
                   }
-                } else if (fparty2 <= 0.75 &&
+                } else if (fpartx2 <= 0.75 &&
                   open_adj[1 + dy][0] &&
                   open_adj[1][0]
                 ) {
@@ -304,9 +304,9 @@ export function topdownMotion<T extends string=string>(params: {
     pos[1] = fy2;
   }
 
-  let dist = v2distSq([startx, starty], pos);
+  let dist = v2dist([startx, starty], pos);
   let move_dist = v2length(impulse);
-  if (dist > move_dist * move_dist) {
+  if ((dist - move_dist) / move_dist > 0.01) { // more than 1% extra movement distance
     let delta = v2sub([0, 0], pos, [startx, starty]);
     v2iNormalize(delta);
     v2addScale(pos, [startx, starty], delta, move_dist);

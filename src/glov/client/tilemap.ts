@@ -1,10 +1,9 @@
 import assert from 'assert';
 import { DataObject, Rec } from 'glov/common/types';
 import { clamp } from 'glov/common/util';
-import { JSVec2, Vec2 } from 'glov/common/vmath';
+import { Vec2 } from 'glov/common/vmath';
 import { autoAtlas } from './autoatlas';
 import * as camera2d from './camera2d';
-import * as engine from './engine';
 import { spriteClipped, spriteClippedViewport } from './sprites';
 import { EnumLayer } from './topdown';
 import { UIBox } from './ui';
