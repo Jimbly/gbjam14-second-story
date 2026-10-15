@@ -4,7 +4,7 @@ import { AnimationSequencer, animationSequencerCreate } from 'glov/client/animat
 import { autoAtlas } from 'glov/client/autoatlas';
 import * as camera2d from 'glov/client/camera2d';
 import { applyCopy, effectsIsFinal, effectsQueue } from 'glov/client/effects';
-import { DEBUG, getFrameIndex, getFrameTimestamp } from 'glov/client/engine';
+import { DEBUG, getFrameTimestamp } from 'glov/client/engine';
 import { ALIGN, fontStyle } from 'glov/client/font';
 import { framebufferEnd, framebufferStart } from 'glov/client/framebuffer';
 import { keyDown, KEYS } from 'glov/client/input';
@@ -356,33 +356,6 @@ Z.BACKGROUND = 80;
 Z.UI = 90;
 Z.DIALOG = 100;
 Z.FLOATERS = 150;
-
-const TILE_Z: Rec<string, number> = {
-  'jail': Z.WALLS,
-  'shop': Z.WALLS,
-  'npc': Z.WALLS,
-  'shopkeeper': Z.HERO,
-  'wall-h': Z.WALLS,
-  'wall-v': Z.WALLS,
-  'wall-corner': Z.WALLS,
-  'wall-h-bottom': Z.WALLS,
-  'wall-ll': Z.WALLS,
-  'wall-lr': Z.WALLS,
-  'wall-upper-corner': Z.WALLS,
-  'wall-left-t': Z.WALLS,
-  'gate': Z.DOORS,
-  'celldoor': Z.DOORS,
-  'door-v': Z.DOORS,
-  'door-h': Z.DOORS,
-  'floor-1': Z.FLOORS,
-  'floor-1b': Z.FLOORS,
-  'loot': Z.FLOORS,
-  'floor-2': Z.FLOORS,
-  'chest-opened': Z.CHESTS,
-  'chest-aborted': Z.CHESTS,
-  'guard-right': Z.HERO,
-  'guard-left': Z.HERO,
-};
 
 function cellsToTiles(level: Level, set?: string): void {
   set = set || '';
@@ -2060,50 +2033,16 @@ function doHeistViewSub(rect: UIBox, dt: number): void {
     blend: BLEND_ADDITIVE,
     z: Z.LIGHT,
   });
-  let { tiles, chests, guards, w, h } = level;
+  let { chests, guards, w, h } = level;
   let x0 = floor(mapped_pos0[0] / TILESIZE);
   let x1 = floor(mapped_pos1[0] / TILESIZE);
   let y0 = floor(mapped_pos0[1] / TILESIZE);
   let y1 = floor(mapped_pos1[1] / TILESIZE);
 
-  if (getFrameIndex() % 2 || keyDown(KEYS.SHIFT)) {
-    level.tile_map.draw({
-      z: Z.FLOORS,
-    });
-  } else {
-    let { set } = level.def;
-    for (let yy = max(0, y0); yy <= min(y1, h-1); ++yy) {
-      let row = tiles[yy];
-      if (!row) {
-        continue;
-      }
-      for (let xx = max(0, x0); xx <= min(x1, w-1); ++xx) {
-        let spr = row[xx];
-        if (!spr) {
-          continue;
-        }
-        let spr_simple = set ? spr.slice(set.length) : spr;
-        let z = TILE_Z[spr_simple];
-        assert(z);
-        autoAtlas('gfx', spr).draw({
-          x: xx * TILESIZE,
-          y: yy * TILESIZE,
-          w: TILESIZE,
-          h: TILESIZE,
-          z,
-        });
-        if (spr_simple === 'door-h') {
-          autoAtlas('gfx', `${set}door-h-highz`).draw({
-            x: xx * TILESIZE,
-            y: yy * TILESIZE,
-            w: TILESIZE,
-            h: TILESIZE,
-            z: Z.DOOR_HIGHZ,
-          });
-        }
-      }
-    }
-  }
+  level.tile_map.draw({
+    z: Z.FLOORS,
+  });
+
   for (let ii = 0; ii < chests.length; ++ii) {
     let chest = chests[ii];
     autoAtlas('gfx', chest.opened ? 'chest-opened' : chest.pick_state ? 'chest-aborted' :
