@@ -1,3 +1,6 @@
+const gb = require('glov-build');
+const ldtkproc = require('./ldtk');
+
 module.exports = function (config) {
   config.extra_index.push({
     name: 'itch',
@@ -9,4 +12,12 @@ module.exports = function (config) {
     wrapper: 'itchlaunch.html',
   });
   config.extra_client_html = ['client/itchlaunch.html'];
+
+  gb.task({
+    name: 'ldtkproc',
+    input: ['ldtk/**/*.ldtkl'],
+    ...ldtkproc(),
+  });
+  config.client_fsdata.push('ldtkproc:**');
+  config.fsdata_embed.push('.ldtkl');
 };

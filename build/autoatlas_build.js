@@ -196,8 +196,10 @@ function updateStableAtlas(job, atlas_name, config_data, imgs_for_packing) {
 
   // pack output, starting with previously know images
   let bit_w = floor(tex_size / tilesize);
+  tex_size = bit_w * tilesize;
   let used = {};
   let placed = {};
+  let reserved = {};
 
   let maxy = 0;
   function place(img_name, idx, tile_w, tile_h) {
@@ -212,6 +214,8 @@ function updateStableAtlas(job, atlas_name, config_data, imgs_for_packing) {
     }
     placed[img_name] = [place_x, place_y];
   }
+  place('reserved', 0, 1, 1);
+  reserved.reserved = true;
   function canPlace(idx, tile_w, tile_h) {
     let place_x = idx % bit_w;
     let place_y = (idx - place_x) / bit_w;
@@ -251,7 +255,6 @@ function updateStableAtlas(job, atlas_name, config_data, imgs_for_packing) {
     }
   }
   // reserve most recent 32 images in the index
-  let reserved = {};
   for (let ii = existing_index_entries.length - 1, left = 32; ii >= 0 && left; --ii) {
     let entry = existing_index_entries[ii];
     let img_name = entry[0];
